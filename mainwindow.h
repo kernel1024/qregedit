@@ -19,7 +19,8 @@ public:
     void centerWindow();
 private:
     Ui::MainWindow *ui;
-    CRegistryModel *model;
+    CRegistryModel *treeModel;
+    CValuesModel *valuesModel;
 
 public slots:
     void openHive();

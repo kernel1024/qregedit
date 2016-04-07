@@ -18,10 +18,11 @@ CMainWindow::CMainWindow(QWidget *parent) :
 
     setWindowIcon(QIcon(":/icons/regedit"));
 
-    model = new CRegistryModel();
+    treeModel = new CRegistryModel();
+    valuesModel = new CValuesModel();
 
-    ui->treeHives->setModel(model);
-//    ui->tableValues->setModel(model);
+    ui->treeHives->setModel(treeModel);
+    ui->tableValues->setModel(valuesModel);
 
     connect(ui->actionExit,&QAction::triggered,this,&CMainWindow::close);
     connect(ui->actionOpenHive,&QAction::triggered,this,&CMainWindow::openHive);

@@ -56,6 +56,36 @@ QStringList CRegController::listKeys(struct hive *hdesc, struct nk_key *key)
     return keys;
 }
 
+QList<CValue> CRegController::listValues(struct hive *hdesc, struct nk_key *key)
+{
+    int nkofs;
+    int count = 0;
+    struct vex_data vex;
+
+    QList<CValue> vals;
+
+    nkofs = (quintptr)key - (quintptr)(hdesc->buffer);
+
+    if (key->id != 0x6b6e) {
+        qCritical() << tr("Error: Not a 'nk' node at offset 0x%1!").arg(nkofs,0,16);
+        return vals;
+    }
+
+    if (key->no_values) {
+        while ((ex_next_v(hdesc, nkofs, &count, &vex) > 0)) {
+            QString str;
+            QVariant v = getValue(hdesc, vex, false);
+            if (v.typeName()=="QString")
+                str = v.toString();
+
+            vals << CValue(vex,str,getValue(hdesc, vex, true).toByteArray());
+            FREE(vex.name);
+        }
+    }
+
+    return vals;
+}
+
 QList<int> CRegController::listKeysOfs(struct hive *hdesc, struct nk_key *key)
 {
     int nkofs;
@@ -127,6 +157,52 @@ QString CRegController::getKeyTooltip(struct hive *hdesc, struct nk_key *key)
     return ret;
 }
 
+QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, int forceHex)
+{
+    void *data;
+    int len,i,type;
+    char *string = NULL;
+    struct keyval *kv = NULL;
+
+    QVariant res;
+    type = vex.type;
+    len = vex.size;
+
+    kv = get_val2buf(hdesc, NULL, vex.vkoffs, "", 0, TPF_VK);
+
+    if (!kv)
+        qFatal("Value - could not fetch data");
+
+    data = (void *)&(kv->data);
+
+    if (forceHex)
+        type = REG_BINARY;
+
+    switch (type) {
+        case REG_SZ:
+        case REG_EXPAND_SZ:
+        case REG_MULTI_SZ:
+            string = string_regw2prog(data, len);
+            for (i = 0; i < (len>>1)-1; i++) {
+                if (string[i] == 0) string[i] = '\n';
+                if (type == REG_SZ) break;
+            }
+
+            res = QString::fromLocal8Bit(string);
+            FREE(string);
+            break;
+        case REG_DWORD:
+            res = QVariant::fromValue((quint32)*(unsigned short *)data);
+            break;
+        default:
+            res = QByteArray((char *)data, len);
+    }
+    FREE(kv);
+
+    return res;
+}
+
+
 QString CRegController::getKeyFullPath(struct hive *hdesc, struct nk_key *key)
 {
     QStringList keys;
@@ -180,4 +256,44 @@ bool CRegController::keyPrepare(const void *ptr, struct hive *&hive, int& hnum, 
 
     hive = hives.at(hnum);
     return true;
+}
+
+CValue::CValue()
+{
+    name.clear();
+    type = REG_NONE;
+    size = 0;
+    vDWORD = 0;
+    vString.clear();
+    vOther.clear();
+}
+
+CValue::CValue(struct vex_data vex, const QString& str, const QByteArray& data)
+{
+    name = QString::fromLocal8Bit(vex.name);
+    type = vex.type;
+    size = vex.size;
+    vDWORD = vex.val;
+    vString = str;
+    vOther = data;
+}
+
+CValue &CValue::operator=(const CValue &other)
+{
+    name = other.name;
+    type = other.type;
+    size = other.size;
+    vDWORD = other.vDWORD;
+    vString = other.vString;
+    vOther = other.vOther;
+}
+
+bool CValue::operator==(const CValue &ref) const
+{
+    return ((ref.name==name) && (ref.type==type) && (ref.size==size));
+}
+
+bool CValue::operator!=(const CValue &ref) const
+{
+    return !operator ==(ref);
 }

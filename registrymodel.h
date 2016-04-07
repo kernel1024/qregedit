@@ -7,6 +7,7 @@
 
 class CRegistryModel : public QAbstractItemModel
 {
+    Q_OBJECT
 public:
     CRegistryModel();
 
@@ -21,6 +22,26 @@ protected:
     QVariant data(const QModelIndex &index, int role) const;
     Qt::ItemFlags flags(const QModelIndex &index) const;
 
+};
+
+class CValuesModel : public QAbstractTableModel
+{
+    Q_OBJECT
+private:
+    int key_ofs;
+    int hive;
+
+public:
+    CValuesModel();
+
+    void keyChanged(const QModelIndex& key);
+
+protected:
+    int rowCount(const QModelIndex &parent) const;
+    int columnCount(const QModelIndex &parent) const;
+    QVariant data(const QModelIndex &index, int role) const;
+    Qt::ItemFlags flags(const QModelIndex &index) const;
+    QVariant headerData(int section, Qt::Orientation orientation, int role) const;
 };
 
 #endif // REGISTRYMODEL_H

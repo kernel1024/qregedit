@@ -137,3 +137,107 @@ Qt::ItemFlags CRegistryModel::flags(const QModelIndex &index) const
 
     return QAbstractItemModel::flags(index);
 }
+
+CValuesModel::CValuesModel()
+{
+    cgl->reg->valuesModel = this;
+    key_ofs = -1;
+    hive = -1;
+}
+
+void CValuesModel::keyChanged(const QModelIndex &key)
+{
+    if (!key.isValid()) return;
+
+    struct nk_key* ck;
+    struct hive* h;
+    if (!cgl->reg->keyPrepare(key.internalPointer(),h,hive,ck)) {
+        hive = -1;
+        key_ofs = -1;
+        return;
+    }
+    key_ofs = cgl->reg->getKeyOfs(h,ck);
+}
+
+int CValuesModel::rowCount(const QModelIndex &parent) const
+{
+    if (hive<0 || key_ofs<0)
+        return 0;
+
+    struct hive* h = cgl->reg->getHivePtr(hive);
+    struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
+
+    QList<CValue> vl = cgl->reg->listValues(h, k);
+
+    return vl.count();
+}
+
+int CValuesModel::columnCount(const QModelIndex &parent) const
+{
+    return 3;
+}
+
+QVariant CValuesModel::data(const QModelIndex &index, int role) const
+{
+    if (!index.isValid() || hive<0 || key_ofs<0)
+        return QVariant();
+
+    struct hive* h = cgl->reg->getHivePtr(hive);
+    struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
+
+    QList<CValue> vl = cgl->reg->listValues(h, k);
+
+    int row = index.row();
+    int col = index.column();
+
+    if (role == Qt::DisplayRole && row>=0 && row<vl.count()) {
+        if (col==0) {
+            return vl.at(row).name;
+        } else if (col==1) {
+            switch (vl.at(row).type) {
+                case REG_NONE: return QString("REG_NONE");
+                case REG_SZ: return QString("REG_SZ");
+                case REG_EXPAND_SZ: return QString("REG_EXPAND_SZ");
+                case REG_BINARY: return QString("REG_BINARY");
+                case REG_DWORD: return QString("REG_DWORD");
+                case REG_DWORD_BIG_ENDIAN: return QString("REG_DWORD_BIG_ENDIAN");
+                case REG_LINK: return QString("REG_LINK");
+                case REG_MULTI_SZ: return QString("REG_MULTI_SZ");
+                case REG_RESOURCE_LIST: return QString("REG_RESOURCE_LIST");
+                case REG_FULL_RESOURCE_DESCRIPTOR: return QString("REG_FULL_RESOURCE_DESCRIPTOR");
+                case REG_RESOURCE_REQUIREMENTS_LIST: return QString("REG_RESOURCE_REQUIREMENTS_LIST");
+                case REG_QWORD: return QString("REG_QWORD");
+                default: return QVariant();
+            }
+        }
+
+        return cgl->reg->getKeyName(h, k);
+
+    } else if (role == Qt::DecorationRole) {
+        return QIcon(":/icons/folder");
+    }
+
+    return QVariant();
+}
+
+Qt::ItemFlags CValuesModel::flags(const QModelIndex &index) const
+{
+    return (Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+}
+
+QVariant CValuesModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+    Q_UNUSED(orientation)
+
+    if (role == Qt::DisplayRole && section>=0 && section<vl.count()) {
+        switch (section) {
+            case 0: return QString("Name");
+            case 1: return QString("Type");
+            case 2: return QString("Value");
+            default: return QVariant();
+        }
+    }
+    return QVariant();
+}
+
+
