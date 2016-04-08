@@ -149,6 +149,18 @@ void CValuesModel::keyChanged(const QModelIndex &key)
 {
     if (!key.isValid()) return;
 
+    if (hive>=0 && key_ofs>=0) {
+        struct hive* h = cgl->reg->getHivePtr(hive);
+        struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
+
+        QList<CValue> vl = cgl->reg->listValues(h, k);
+
+        if (!vl.isEmpty()) {
+            beginRemoveRows(QModelIndex(),0,vl.count()-1);
+            endRemoveRows();
+        }
+    }
+
     struct nk_key* ck;
     struct hive* h;
     if (!cgl->reg->keyPrepare(key.internalPointer(),h,hive,ck)) {
@@ -157,6 +169,12 @@ void CValuesModel::keyChanged(const QModelIndex &key)
         return;
     }
     key_ofs = cgl->reg->getKeyOfs(h,ck);
+
+    QList<CValue> vl = cgl->reg->listValues(h, ck);
+    if (!vl.isEmpty()) {
+        beginInsertRows(QModelIndex(),0,vl.count()-1);
+        endInsertRows();
+    }
 }
 
 int CValuesModel::rowCount(const QModelIndex &parent) const
@@ -190,11 +208,14 @@ QVariant CValuesModel::data(const QModelIndex &index, int role) const
     int row = index.row();
     int col = index.column();
 
-    if (role == Qt::DisplayRole && row>=0 && row<vl.count()) {
+    if  (row<0 || row>=vl.count()) return QVariant();
+    CValue v = vl.at(row);
+
+    if (role == Qt::DisplayRole) {
         if (col==0) {
-            return vl.at(row).name;
+            return v.name;
         } else if (col==1) {
-            switch (vl.at(row).type) {
+            switch (v.type) {
                 case REG_NONE: return QString("REG_NONE");
                 case REG_SZ: return QString("REG_SZ");
                 case REG_EXPAND_SZ: return QString("REG_EXPAND_SZ");
@@ -209,12 +230,26 @@ QVariant CValuesModel::data(const QModelIndex &index, int role) const
                 case REG_QWORD: return QString("REG_QWORD");
                 default: return QVariant();
             }
+        } else if (col==2) {
+            if (v.type==REG_DWORD)
+                return tr("0x%1 (%2)").arg(v.vDWORD,8,16,QChar('0')).arg(v.vDWORD);
+            if (v.type==REG_SZ ||
+                    v.type==REG_EXPAND_SZ ||
+                    v.type==REG_MULTI_SZ)
+                return v.vString;
+            return QString::fromLatin1(vl.at(row).vOther.toHex());
         }
-
-        return cgl->reg->getKeyName(h, k);
-
     } else if (role == Qt::DecorationRole) {
-        return QIcon(":/icons/folder");
+        if (col==0) {
+            switch (v.type) {
+                case REG_SZ:
+                case REG_EXPAND_SZ:
+                case REG_MULTI_SZ:
+                    return QIcon(":/icons/string");
+                default:
+                    return QIcon(":/icons/bin");
+            }
+        }
     }
 
     return QVariant();
@@ -227,9 +262,7 @@ Qt::ItemFlags CValuesModel::flags(const QModelIndex &index) const
 
 QVariant CValuesModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
-    Q_UNUSED(orientation)
-
-    if (role == Qt::DisplayRole && section>=0 && section<vl.count()) {
+    if (role == Qt::DisplayRole && orientation==Qt::Horizontal) {
         switch (section) {
             case 0: return QString("Name");
             case 1: return QString("Type");

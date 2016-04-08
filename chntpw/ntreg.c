@@ -1865,6 +1865,8 @@ int get_val_len(struct hive *hdesc, int vofs, char *path, int exact)
 
   len = vkkey->len_data & 0x7fffffff;
 
+  if (len>100000000) abort();
+
   if ( vkkey->len_data == 0x80000000 && (exact & TPF_VK_SHORT)) {  /* Special inline case, return size of 4 (dword) */
     len = 4;
   }

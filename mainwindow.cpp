@@ -27,6 +27,8 @@ CMainWindow::CMainWindow(QWidget *parent) :
     connect(ui->actionExit,&QAction::triggered,this,&CMainWindow::close);
     connect(ui->actionOpenHive,&QAction::triggered,this,&CMainWindow::openHive);
 
+    connect(ui->treeHives,&QTreeView::clicked,this,&CMainWindow::showValues);
+
     centerWindow();
 }
 
@@ -63,4 +65,10 @@ void CMainWindow::openHive()
         if (!cgl->reg->openTopHive(fname))
             QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to open hive file.\n"
                                                                 "See standard output for debug messages."));
+}
+
+void CMainWindow::showValues(const QModelIndex &key)
+{
+    valuesModel->keyChanged(key);
+
 }

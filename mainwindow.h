@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QTreeView>
 #include "registrymodel.h"
 
 namespace Ui {
@@ -24,6 +25,7 @@ private:
 
 public slots:
     void openHive();
+    void showValues(const QModelIndex& key);
 
 };
 

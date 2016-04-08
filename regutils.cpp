@@ -74,11 +74,11 @@ QList<CValue> CRegController::listValues(struct hive *hdesc, struct nk_key *key)
     if (key->no_values) {
         while ((ex_next_v(hdesc, nkofs, &count, &vex) > 0)) {
             QString str;
-            QVariant v = getValue(hdesc, vex, false);
-            if (v.typeName()=="QString")
+            QVariant v = getValue(hdesc, key, vex, false);
+            if (strcmp(v.typeName(),"QString")==0)
                 str = v.toString();
 
-            vals << CValue(vex,str,getValue(hdesc, vex, true).toByteArray());
+            vals << CValue(vex,str,getValue(hdesc, key, vex, true).toByteArray());
             FREE(vex.name);
         }
     }
@@ -157,7 +157,7 @@ QString CRegController::getKeyTooltip(struct hive *hdesc, struct nk_key *key)
     return ret;
 }
 
-QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, int forceHex)
+QVariant CRegController::getValue(struct hive *hdesc, struct nk_key *key, struct vex_data vex, int forceHex)
 {
     void *data;
     int len,i,type;
@@ -168,7 +168,7 @@ QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, int f
     type = vex.type;
     len = vex.size;
 
-    kv = get_val2buf(hdesc, NULL, vex.vkoffs, "", 0, TPF_VK);
+    kv = get_val2buf(hdesc, NULL, getKeyOfs(hdesc, key), vex.name, 0, TPF_VK);
 
     if (!kv)
         qFatal("Value - could not fetch data");
@@ -286,6 +286,8 @@ CValue &CValue::operator=(const CValue &other)
     vDWORD = other.vDWORD;
     vString = other.vString;
     vOther = other.vOther;
+
+    return *this;
 }
 
 bool CValue::operator==(const CValue &ref) const
