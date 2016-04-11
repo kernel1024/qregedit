@@ -32,6 +32,7 @@ public slots:
     void showValues(const QModelIndex& key);
     void hivePrepareClose(int idx);
     void treeCtxMenu(const QPoint& pos);
+    void valuesCtxMenu(const QPoint& pos);
 
 };
 

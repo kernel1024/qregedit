@@ -13,7 +13,7 @@ CRegController::CRegController(QObject *parent)
 
 bool CRegController::openTopHive(const QString &filename)
 {
-    struct hive* h = openHive(filename.toUtf8().data(), cgl->hiveOpenMode | HMODE_RO);
+    struct hive* h = openHive(filename.toUtf8().data(), cgl->hiveOpenMode | HMODE_RW);
     if (h==NULL) {
         qCritical() << "Failed to open hive" << filename;
         return false;

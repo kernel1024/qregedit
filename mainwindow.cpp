@@ -3,6 +3,7 @@
 #include <QSortFilterProxyModel>
 #include <QIcon>
 #include <QMessageBox>
+#include <QInputDialog>
 
 #include "global.h"
 #include "mainwindow.h"
@@ -28,6 +29,7 @@ CMainWindow::CMainWindow(QWidget *parent) :
     ui->tableValues->setModel(sortValues);
 
     ui->treeHives->setContextMenuPolicy(Qt::CustomContextMenu);
+    ui->tableValues->setContextMenuPolicy(Qt::CustomContextMenu);
 
     connect(ui->actionExit,&QAction::triggered,this,&CMainWindow::close);
     connect(ui->actionOpenHive,&QAction::triggered,this,&CMainWindow::openHive);
@@ -35,6 +37,8 @@ CMainWindow::CMainWindow(QWidget *parent) :
     connect(ui->treeHives,&QTreeView::clicked,this,&CMainWindow::showValues);
     connect(ui->treeHives,&QTreeView::customContextMenuRequested,
             this,&CMainWindow::treeCtxMenu);
+    connect(ui->tableValues,&QTableView::customContextMenuRequested,
+            this,&CMainWindow::valuesCtxMenu);
     connect(cgl->reg,&CRegController::hiveAboutToClose,this,&CMainWindow::hivePrepareClose);
 
     centerWindow();
@@ -109,9 +113,47 @@ void CMainWindow::treeCtxMenu(const QPoint &pos)
     QMenu cm(ui->treeHives);
 
     QAction* acm;
+    // TODO: add key operations...
     acm = cm.addAction(tr("Close hive"));
     connect(acm,&QAction::triggered,[hive](){
         cgl->reg->closeTopHive(hive);
     });
     cm.exec(ui->treeHives->mapToGlobal(pos));
+}
+
+void CMainWindow::valuesCtxMenu(const QPoint &pos)
+{
+    QModelIndex idx = ui->tableValues->indexAt(pos);
+
+    QString name = valuesModel->getValueName(idx);
+
+    QMenu cm(ui->tableValues);
+    QAction* acm;
+    if (!name.isEmpty()) { // Context menu for value
+        acm = cm.addAction(tr("Modify"));
+        connect(acm,&QAction::triggered,[name](){
+            // TODO: create edit dialog here
+
+        });
+
+        cm.addSeparator();
+
+        acm = cm.addAction(tr("Delete"));
+        connect(acm,&QAction::triggered,[this,name](){
+            valuesModel->deleteValue(name);
+        });
+
+        acm = cm.addAction(tr("Rename"));
+        connect(acm,&QAction::triggered,[this,name](){
+            bool ok;
+            QString new_name = QInputDialog::getText(this,tr("Registry Editor"),
+                                                     tr("Rename registry value"),QLineEdit::Normal,name,&ok);
+            if (ok && !new_name.isEmpty())
+                valuesModel->renameValue(name,new_name);
+        });
+    } else {
+
+    }
+
+    cm.exec(ui->tableValues->mapToGlobal(pos));
 }

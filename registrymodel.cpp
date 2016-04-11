@@ -201,6 +201,37 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
     }
 }
 
+void CValuesModel::renameValue(const QString &old_name, const QString &new_name)
+{
+    // TODO: rename
+}
+
+void CValuesModel::deleteValue(const QString &name)
+{
+    // TODO: delete
+}
+
+QString CValuesModel::getValueName(const QModelIndex &index)
+{
+    if (!index.isValid() || hive<0 || key_ofs<0)
+        return QString();
+
+    struct hive* h = cgl->reg->getHivePtr(hive);
+    struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
+
+    QList<CValue> vl = cgl->reg->listValues(h, k);
+
+    int row = index.row();
+
+    if  (row<0 || row>=vl.count()) return QString();
+    CValue v = vl.at(row);
+
+    if (v.name==QString("(Default)"))
+        return QString();
+    else
+        return v.name;
+}
+
 int CValuesModel::rowCount(const QModelIndex &parent) const
 {
     Q_UNUSED(parent)

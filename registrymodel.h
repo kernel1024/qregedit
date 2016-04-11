@@ -41,6 +41,11 @@ public:
 
     void keyChanged(const QModelIndex& key, QTableView *table);
 
+    void renameValue(const QString& old_name, const QString& new_name);
+    void deleteValue(const QString& name);
+
+    QString getValueName(const QModelIndex& index);
+
 protected:
     int rowCount(const QModelIndex &parent) const;
     int columnCount(const QModelIndex &parent) const;
