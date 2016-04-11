@@ -46,6 +46,8 @@ public:
     CRegController(QObject* parent = 0);
 
     bool openTopHive(const QString &filename);
+    bool saveTopHive(int idx);
+    void closeTopHive(int idx);
 
     int getHivesCount() const { return hives.count(); }
     struct hive* getHivePtr(int idx) { return hives.at(idx); }
@@ -63,6 +65,12 @@ public:
     QVariant getValue(struct hive *hdesc, struct vex_data vex, int forceHex);
     QList<CValue> listValues(struct hive *hdesc, struct nk_key *key);
     struct keyval *getKeyValue(hive *hdesc, keyval *kv, vex_data vex, int type, int exact);
+
+signals:
+    void hiveOpened(int idx);
+    void hiveClosed(int old_idx);
+    void hiveSaved(int idx);
+    void hiveAboutToClose(int idx);
 };
 
 #endif // REGUTILS_H

@@ -8,10 +8,15 @@ class CGlobal : public QObject
 {
     Q_OBJECT
 public:
-    int hiveMode;
+    int hiveOpenMode;
     CRegController* reg;
 
     explicit CGlobal(QObject *parent = 0);
+
+    bool safeToClose();
+
+    void loadSettings();
+    void writeSettings();
 
 signals:
 

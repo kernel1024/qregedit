@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QTreeView>
+#include <QCloseEvent>
 #include "registrymodel.h"
 
 namespace Ui {
@@ -23,9 +24,14 @@ private:
     CRegistryModel *treeModel;
     CValuesModel *valuesModel;
 
+protected:
+    void closeEvent(QCloseEvent *event);
+
 public slots:
     void openHive();
     void showValues(const QModelIndex& key);
+    void hivePrepareClose(int idx);
+    void treeCtxMenu(const QPoint& pos);
 
 };
 

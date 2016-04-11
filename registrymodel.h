@@ -14,6 +14,10 @@ public:
 
     void beginInsertRows(const QModelIndex &parent, int first, int last);
     void endInsertRows();
+    void beginRemoveRows(const QModelIndex &parent, int first, int last);
+    void endRemoveRows();
+
+    int getHiveIdx(const QModelIndex& index);
 
 protected:
     QModelIndex index(int row, int column, const QModelIndex &parent) const;

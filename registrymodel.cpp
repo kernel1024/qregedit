@@ -18,6 +18,23 @@ void CRegistryModel::endInsertRows()
     QAbstractItemModel::endInsertRows();
 }
 
+void CRegistryModel::beginRemoveRows(const QModelIndex &parent, int first, int last)
+{
+    QAbstractItemModel::beginRemoveRows(parent, first, last);
+}
+
+void CRegistryModel::endRemoveRows()
+{
+    QAbstractItemModel::endRemoveRows();
+}
+
+int CRegistryModel::getHiveIdx(const QModelIndex &index)
+{
+    if (!index.isValid()) return -1;
+
+    return cgl->reg->getHive((struct nk_key*)(index.internalPointer()));
+}
+
 QModelIndex CRegistryModel::index(int row, int column, const QModelIndex &parent) const
 {
     if (!hasIndex(row, column, parent))
@@ -149,8 +166,6 @@ CValuesModel::CValuesModel()
 
 void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
 {
-    if (!key.isValid()) return;
-
     if (hive>=0 && key_ofs>=0) {
         struct hive* h = cgl->reg->getHivePtr(hive);
         struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
@@ -162,6 +177,8 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
             endRemoveRows();
         }
     }
+
+    if (!key.isValid()) return;
 
     struct nk_key* ck;
     struct hive* h;
@@ -178,8 +195,10 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
         endInsertRows();
     }
 
-    table->resizeColumnsToContents();
-    table->sortByColumn(0, Qt::AscendingOrder);
+    if (table!=NULL) {
+        table->resizeColumnsToContents();
+        table->sortByColumn(0, Qt::AscendingOrder);
+    }
 }
 
 int CValuesModel::rowCount(const QModelIndex &parent) const

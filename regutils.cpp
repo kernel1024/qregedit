@@ -1,6 +1,8 @@
 #include "registrymodel.h"
 #include "regutils.h"
 #include "global.h"
+#include <QApplication>
+#include <QMessageBox>
 #include <QDebug>
 
 CRegController::CRegController(QObject *parent)
@@ -11,7 +13,7 @@ CRegController::CRegController(QObject *parent)
 
 bool CRegController::openTopHive(const QString &filename)
 {
-    struct hive* h = openHive(filename.toUtf8().data(), cgl->hiveMode | HMODE_RO);
+    struct hive* h = openHive(filename.toUtf8().data(), cgl->hiveOpenMode | HMODE_RO);
     if (h==NULL) {
         qCritical() << "Failed to open hive" << filename;
         return false;
@@ -22,12 +24,78 @@ bool CRegController::openTopHive(const QString &filename)
         return false;
     }
     if (treeModel)
-        treeModel->beginInsertRows(QModelIndex(),getHivesCount(),getHivesCount()+1);
+        treeModel->beginInsertRows(QModelIndex(),getHivesCount(),getHivesCount());
     hives << h;
     if (treeModel)
         treeModel->endInsertRows();
 
+    emit hiveOpened(getHivesCount()-1);
+
     return true;
+}
+
+bool CRegController::saveTopHive(int idx)
+{
+    if (idx<0 || idx>=hives.count()) return false;
+
+    struct hive* h = hives.at(idx);
+
+    if ((h->state & HMODE_DIRTY) == 0)
+        return true;
+    else {
+        int ret = QMessageBox::warning(0,tr("Registry Editor"),
+                                       tr("Hive file '%1' has been modified. "
+                                          "Do you want to save hive").arg(h->filename),
+                                       QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
+                                       QMessageBox::Save);
+        if (ret==QMessageBox::Discard)
+            return true;
+        if (ret==QMessageBox::Cancel)
+            return false;
+    }
+
+    if (h->state & HMODE_DIDEXPAND) {
+        int ret = QMessageBox::warning(0,tr("Registry Editor"),
+                                       tr("Hive file '%1' has been expanded. "
+                                          "This is highly experimental feature!\n"
+                                          "Please, use backups and use this feature at own risk!\n\n"
+                                          "Do you want to save hive anyway?").arg(h->filename),
+                                       QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
+                                       QMessageBox::Save);
+        if (ret==QMessageBox::Discard)
+            return true;
+        if (ret==QMessageBox::Cancel)
+            return false;
+    }
+
+    if (!writeHive(h)) {
+        emit hiveSaved(idx);
+        return true;
+    } else {
+        QMessageBox::warning(0,tr("Registry Editor"),
+                             tr("Failed to save hive file '%1'.").arg(h->filename));
+        return false;
+    }
+}
+
+void CRegController::closeTopHive(int idx)
+{
+    if (idx<0 || idx>=hives.count()) return;
+
+    emit hiveAboutToClose(idx);
+
+    struct hive* h = hives.at(idx);
+
+    if (treeModel)
+        treeModel->beginRemoveRows(QModelIndex(),idx,idx);
+    hives.removeAt(idx);
+    if (treeModel)
+        treeModel->endRemoveRows();
+
+    QApplication::processEvents();
+    closeHive(h);
+
+    emit hiveClosed(idx);
 }
 
 

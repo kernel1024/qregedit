@@ -27,10 +27,15 @@ CMainWindow::CMainWindow(QWidget *parent) :
     ui->treeHives->setModel(treeModel);
     ui->tableValues->setModel(sortValues);
 
+    ui->treeHives->setContextMenuPolicy(Qt::CustomContextMenu);
+
     connect(ui->actionExit,&QAction::triggered,this,&CMainWindow::close);
     connect(ui->actionOpenHive,&QAction::triggered,this,&CMainWindow::openHive);
 
     connect(ui->treeHives,&QTreeView::clicked,this,&CMainWindow::showValues);
+    connect(ui->treeHives,&QTreeView::customContextMenuRequested,
+            this,&CMainWindow::treeCtxMenu);
+    connect(cgl->reg,&CRegController::hiveAboutToClose,this,&CMainWindow::hivePrepareClose);
 
     centerWindow();
 }
@@ -65,6 +70,14 @@ void CMainWindow::centerWindow()
     ui->splitter->setSizes(sz);
 }
 
+void CMainWindow::closeEvent(QCloseEvent *event)
+{
+    if (cgl!=NULL && cgl->safeToClose())
+        event->accept();
+    else
+        event->ignore();
+}
+
 void CMainWindow::openHive()
 {
     QString fname = QFileDialog::getOpenFileName(this,tr("Registry files"));
@@ -77,4 +90,28 @@ void CMainWindow::openHive()
 void CMainWindow::showValues(const QModelIndex &key)
 {
     valuesModel->keyChanged(key, ui->tableValues);
+}
+
+void CMainWindow::hivePrepareClose(int idx)
+{
+    Q_UNUSED(idx)
+
+    valuesModel->keyChanged(QModelIndex(),ui->tableValues);
+}
+
+void CMainWindow::treeCtxMenu(const QPoint &pos)
+{
+    QModelIndex idx = ui->treeHives->indexAt(pos);
+
+    int hive = treeModel->getHiveIdx(idx);
+    if (hive<0) return;
+
+    QMenu cm(ui->treeHives);
+
+    QAction* acm;
+    acm = cm.addAction(tr("Close hive"));
+    connect(acm,&QAction::triggered,[hive](){
+        cgl->reg->closeTopHive(hive);
+    });
+    cm.exec(ui->treeHives->mapToGlobal(pos));
 }
