@@ -2,6 +2,7 @@
 #define REGISTRYMODEL_H
 
 #include <QAbstractItemModel>
+#include <QTableView>
 #include <QVector>
 #include <QString>
 
@@ -34,7 +35,7 @@ private:
 public:
     CValuesModel();
 
-    void keyChanged(const QModelIndex& key);
+    void keyChanged(const QModelIndex& key, QTableView *table);
 
 protected:
     int rowCount(const QModelIndex &parent) const;

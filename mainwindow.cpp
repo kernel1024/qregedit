@@ -1,5 +1,6 @@
 #include <QFileDialog>
 #include <QDesktopWidget>
+#include <QSortFilterProxyModel>
 #include <QIcon>
 #include <QMessageBox>
 
@@ -21,8 +22,10 @@ CMainWindow::CMainWindow(QWidget *parent) :
     treeModel = new CRegistryModel();
     valuesModel = new CValuesModel();
 
+    QSortFilterProxyModel *sortValues = new QSortFilterProxyModel(this);
+    sortValues->setSourceModel(valuesModel);
     ui->treeHives->setModel(treeModel);
-    ui->tableValues->setModel(valuesModel);
+    ui->tableValues->setModel(sortValues);
 
     connect(ui->actionExit,&QAction::triggered,this,&CMainWindow::close);
     connect(ui->actionOpenHive,&QAction::triggered,this,&CMainWindow::openHive);
@@ -56,6 +59,10 @@ void CMainWindow::centerWindow()
     resize(nw);
     move(rect.width()/2 - frameGeometry().width()/2,
          rect.height()/2 - frameGeometry().height()/2);
+
+    QList<int> sz;
+    sz << nw.width()/4 << 3*nw.width()/4;
+    ui->splitter->setSizes(sz);
 }
 
 void CMainWindow::openHive()
@@ -69,6 +76,5 @@ void CMainWindow::openHive()
 
 void CMainWindow::showValues(const QModelIndex &key)
 {
-    valuesModel->keyChanged(key);
-
+    valuesModel->keyChanged(key, ui->tableValues);
 }

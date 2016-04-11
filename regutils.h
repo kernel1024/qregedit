@@ -60,8 +60,9 @@ public:
     QString getKeyName(struct hive *hdesc, struct nk_key* key);
     QString getKeyTooltip(struct hive *hdesc, struct nk_key* key);
     QString getKeyFullPath(struct hive *hdesc, struct nk_key* key);
-    QVariant getValue(struct hive *hdesc, struct nk_key *key, struct vex_data vex, int forceHex);
+    QVariant getValue(struct hive *hdesc, struct vex_data vex, int forceHex);
     QList<CValue> listValues(struct hive *hdesc, struct nk_key *key);
+    struct keyval *getKeyValue(hive *hdesc, keyval *kv, vex_data vex, int type, int exact);
 };
 
 #endif // REGUTILS_H

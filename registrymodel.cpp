@@ -99,6 +99,8 @@ int CRegistryModel::rowCount(const QModelIndex &parent) const
 
 int CRegistryModel::columnCount(const QModelIndex &parent) const
 {
+    Q_UNUSED(parent)
+
     return 1;
 }
 
@@ -145,7 +147,7 @@ CValuesModel::CValuesModel()
     hive = -1;
 }
 
-void CValuesModel::keyChanged(const QModelIndex &key)
+void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
 {
     if (!key.isValid()) return;
 
@@ -175,10 +177,15 @@ void CValuesModel::keyChanged(const QModelIndex &key)
         beginInsertRows(QModelIndex(),0,vl.count()-1);
         endInsertRows();
     }
+
+    table->resizeColumnsToContents();
+    table->sortByColumn(0, Qt::AscendingOrder);
 }
 
 int CValuesModel::rowCount(const QModelIndex &parent) const
 {
+    Q_UNUSED(parent)
+
     if (hive<0 || key_ofs<0)
         return 0;
 
@@ -192,6 +199,8 @@ int CValuesModel::rowCount(const QModelIndex &parent) const
 
 int CValuesModel::columnCount(const QModelIndex &parent) const
 {
+    Q_UNUSED(parent)
+
     return 3;
 }
 
@@ -257,6 +266,8 @@ QVariant CValuesModel::data(const QModelIndex &index, int role) const
 
 Qt::ItemFlags CValuesModel::flags(const QModelIndex &index) const
 {
+    Q_UNUSED(index)
+
     return (Qt::ItemIsSelectable | Qt::ItemIsEnabled);
 }
 

@@ -1863,9 +1863,9 @@ int get_val_len(struct hive *hdesc, int vofs, char *path, int exact)
   vkofs +=4;
   vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
 
-  len = vkkey->len_data & 0x7fffffff;
+  if (vkkey->val_type == REG_NONE) return -1;
 
-  if (len>100000000) abort();
+  len = vkkey->len_data & 0x7fffffff;
 
   if ( vkkey->len_data == 0x80000000 && (exact & TPF_VK_SHORT)) {  /* Special inline case, return size of 4 (dword) */
     len = 4;

@@ -74,11 +74,15 @@ QList<CValue> CRegController::listValues(struct hive *hdesc, struct nk_key *key)
     if (key->no_values) {
         while ((ex_next_v(hdesc, nkofs, &count, &vex) > 0)) {
             QString str;
-            QVariant v = getValue(hdesc, key, vex, false);
+            QVariant v = getValue(hdesc, vex, false);
+            if (v.isNull()) {
+                FREE(vex.name);
+                continue;
+            }
             if (strcmp(v.typeName(),"QString")==0)
                 str = v.toString();
 
-            vals << CValue(vex,str,getValue(hdesc, key, vex, true).toByteArray());
+            vals << CValue(vex,str,getValue(hdesc, vex, true).toByteArray());
             FREE(vex.name);
         }
     }
@@ -157,7 +161,71 @@ QString CRegController::getKeyTooltip(struct hive *hdesc, struct nk_key *key)
     return ret;
 }
 
-QVariant CRegController::getValue(struct hive *hdesc, struct nk_key *key, struct vex_data vex, int forceHex)
+struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct keyval *kv,
+                           struct vex_data vex, int type, int exact )
+{
+    int l,i,parts,list,blockofs,blocksize,point,copylen,restlen;
+    struct keyval *kr;
+    void *keydataptr = NULL;
+    struct db_key *db;
+    void *addr;
+
+    l = vex.size;
+    if (l == -1) return(NULL);  /* error */
+    if (kv && (kv->len < l)) return(NULL); /* Check for overflow of supplied buffer */
+
+    if ((quint32)(vex.vk->len_data) == 0x80000000 && (exact & TPF_VK_SHORT)) {
+        /* Special inline case (len = 0x80000000) */
+        keydataptr = (&vex.vk->val_type); /* Data (4 bytes?) in type field */
+    }
+    if (type && vex.vk->val_type && (vex.vk->val_type) != type)
+        keydataptr = NULL;
+    else if (vex.vk->len_data & 0x80000000)
+        keydataptr = (&vex.vk->ofs_data);
+    else
+        keydataptr = (hdesc->buffer + vex.vk->ofs_data + 0x1004);
+
+    if (keydataptr==NULL)
+        return NULL;
+
+    /* Allocate space for data + header, or use supplied buffer */
+    if (kv) {
+        kr = kv;
+    } else {
+        kr = (keyval*)calloc(1,l*sizeof(int)+4);
+    }
+
+    kr->len = l;
+
+    if (l > VAL_DIRECT_LIMIT) {       /* Where do the db indirects start? seems to be around 16k */
+        db = (struct db_key *)keydataptr;
+        if (db->id != 0x6264) abort();
+        parts = db->no_part;
+        list = db->ofs_data + 0x1004;
+
+        point = 0;
+        restlen = l;
+        for (i = 0; i < parts; i++) {
+            blockofs = get_int(hdesc->buffer + list + (i << 2)) + 0x1000;
+            blocksize = -get_int(hdesc->buffer + blockofs) - 8;
+
+            /* Copy this part, up to size of block or rest lenght in last block */
+            copylen = (blocksize > restlen) ? restlen : blocksize;
+
+            addr = (void*)((quintptr)&(kr->data) + point);
+            memcpy( addr, hdesc->buffer + blockofs + 4, copylen);
+
+            point += copylen;
+            restlen -= copylen;
+        }
+    } else {
+        if (l && kr && keydataptr) memcpy(&(kr->data), keydataptr, l);
+    }
+
+    return(kr);
+}
+
+QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, int forceHex)
 {
     void *data;
     int len,i,type;
@@ -168,10 +236,12 @@ QVariant CRegController::getValue(struct hive *hdesc, struct nk_key *key, struct
     type = vex.type;
     len = vex.size;
 
-    kv = get_val2buf(hdesc, NULL, getKeyOfs(hdesc, key), vex.name, 0, TPF_VK);
+    kv = getKeyValue(hdesc, NULL, vex, 0, TPF_VK);
 
-    if (!kv)
-        qFatal("Value - could not fetch data");
+    if (!kv) {
+        qCritical() << "Value - could not fetch data" << vex.name;
+        return QVariant();
+    }
 
     data = (void *)&(kv->data);
 
@@ -271,6 +341,8 @@ CValue::CValue()
 CValue::CValue(struct vex_data vex, const QString& str, const QByteArray& data)
 {
     name = QString::fromLocal8Bit(vex.name);
+    if (name.isEmpty())
+        name = QString("(Default)");
     type = vex.type;
     size = vex.size;
     vDWORD = vex.val;
