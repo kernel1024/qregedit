@@ -10,19 +10,24 @@ SOURCES += main.cpp\
     chntpw/ntreg.c \
     registrymodel.cpp \
     global.cpp \
-    regutils.cpp
+    regutils.cpp \
+    valueeditor.cpp
 
 HEADERS  += mainwindow.h \
     chntpw/ntreg.h \
     registrymodel.h \
     global.h \
-    regutils.h
+    regutils.h \
+    valueeditor.h
 
-FORMS    += mainwindow.ui
+FORMS    += mainwindow.ui \
+    valueeditor.ui
 
-DISTFILES += \
+OTHER_FILES += \
     LICENSE \
     README.md
 
 RESOURCES += \
     qregedit.qrc
+
+include( qhexedit2/qhexedit.pri )

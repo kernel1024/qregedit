@@ -238,6 +238,7 @@ struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct keyval *kv
     struct db_key *db;
     void *addr;
 
+    qDebug() << vex.name << vex.size << getValueTypeStr(vex.type);
     l = vex.size;
     if (l == -1) return(NULL);  /* error */
     if (kv && (kv->len < l)) return(NULL); /* Check for overflow of supplied buffer */
@@ -264,6 +265,7 @@ struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct keyval *kv
     }
 
     kr->len = l;
+    qDebug() << kr->len;
 
     if (l > VAL_DIRECT_LIMIT) {       /* Where do the db indirects start? seems to be around 16k */
         db = (struct db_key *)keydataptr;
@@ -396,6 +398,42 @@ bool CRegController::keyPrepare(const void *ptr, struct hive *&hive, int& hnum, 
     return true;
 }
 
+QString CRegController::getValueTypeStr(int type)
+{
+    switch (type) {
+        case REG_NONE: return QString("REG_NONE");
+        case REG_SZ: return QString("REG_SZ");
+        case REG_EXPAND_SZ: return QString("REG_EXPAND_SZ");
+        case REG_BINARY: return QString("REG_BINARY");
+        case REG_DWORD: return QString("REG_DWORD");
+        case REG_DWORD_BIG_ENDIAN: return QString("REG_DWORD_BIG_ENDIAN");
+        case REG_LINK: return QString("REG_LINK");
+        case REG_MULTI_SZ: return QString("REG_MULTI_SZ");
+        case REG_RESOURCE_LIST: return QString("REG_RESOURCE_LIST");
+        case REG_FULL_RESOURCE_DESCRIPTOR: return QString("REG_FULL_RESOURCE_DESCRIPTOR");
+        case REG_RESOURCE_REQUIREMENTS_LIST: return QString("REG_RESOURCE_REQUIREMENTS_LIST");
+        case REG_QWORD: return QString("REG_QWORD");
+        default: return QString();
+    }
+}
+
+bool CRegController::setValue(struct hive *hdesc, const CValue &value)
+{
+    struct keyval *newkv = NULL;
+
+    switch(value.type) {
+        case REG_DWORD:
+            newkv = (struct keyval*)calloc(1,2*sizeof(int));
+            newkv->data = value.vDWORD;
+            break;
+        default:
+            break;
+    }
+
+    return false;
+
+}
+
 CValue::CValue()
 {
     name.clear();
@@ -438,4 +476,9 @@ bool CValue::operator==(const CValue &ref) const
 bool CValue::operator!=(const CValue &ref) const
 {
     return !operator ==(ref);
+}
+
+bool CValue::isEmpty()
+{
+    return (name.isEmpty() && type==REG_NONE);
 }

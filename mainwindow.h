@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QTreeView>
 #include <QCloseEvent>
+#include <QSortFilterProxyModel>
 #include "registrymodel.h"
 
 namespace Ui {
@@ -23,6 +24,8 @@ private:
     Ui::MainWindow *ui;
     CRegistryModel *treeModel;
     CValuesModel *valuesModel;
+    QSortFilterProxyModel *valuesSortModel;
+    void treeCtxMenuPrivate(const QPoint& pos, const bool fromValuesTable);
 
 protected:
     void closeEvent(QCloseEvent *event);
@@ -31,7 +34,7 @@ public slots:
     void openHive();
     void showValues(const QModelIndex& key);
     void hivePrepareClose(int idx);
-    void treeCtxMenu(const QPoint& pos);
+    void treeCtxMenu(const QPoint& pos) { treeCtxMenuPrivate(pos, false); }
     void valuesCtxMenu(const QPoint& pos);
 
 };

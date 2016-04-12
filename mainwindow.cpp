@@ -1,13 +1,15 @@
 #include <QFileDialog>
 #include <QDesktopWidget>
-#include <QSortFilterProxyModel>
 #include <QIcon>
 #include <QMessageBox>
 #include <QInputDialog>
 
 #include "global.h"
 #include "mainwindow.h"
+#include "valueeditor.h"
 #include "ui_mainwindow.h"
+
+// TODO: replace all toLocal8Bit with centralized configurable charset codec
 
 CMainWindow::CMainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -23,10 +25,10 @@ CMainWindow::CMainWindow(QWidget *parent) :
     treeModel = new CRegistryModel();
     valuesModel = new CValuesModel();
 
-    QSortFilterProxyModel *sortValues = new QSortFilterProxyModel(this);
-    sortValues->setSourceModel(valuesModel);
+    valuesSortModel = new QSortFilterProxyModel(this);
+    valuesSortModel->setSourceModel(valuesModel);
     ui->treeHives->setModel(treeModel);
-    ui->tableValues->setModel(sortValues);
+    ui->tableValues->setModel(valuesSortModel);
 
     ui->treeHives->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->tableValues->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -103,57 +105,72 @@ void CMainWindow::hivePrepareClose(int idx)
     valuesModel->keyChanged(QModelIndex(),ui->tableValues);
 }
 
-void CMainWindow::treeCtxMenu(const QPoint &pos)
+void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTable)
 {
-    QModelIndex idx = ui->treeHives->indexAt(pos);
+    QModelIndex idx;
+    QMenu* cm;
+    if (fromValuesTable) {
+        idx = ui->treeHives->currentIndex();
+        cm = new QMenu(ui->tableValues);
+    } else {
+        idx = ui->treeHives->indexAt(pos);
+        cm = new QMenu(ui->treeHives);
+    }
 
     int hive = treeModel->getHiveIdx(idx);
     if (hive<0) return;
 
-    QMenu cm(ui->treeHives);
-
     QAction* acm;
     // TODO: add key operations...
-    acm = cm.addAction(tr("Close hive"));
+    acm = cm->addAction(tr("Close hive"));
     connect(acm,&QAction::triggered,[hive](){
         cgl->reg->closeTopHive(hive);
     });
-    cm.exec(ui->treeHives->mapToGlobal(pos));
+
+    if (fromValuesTable)
+        cm->exec(ui->tableValues->mapToGlobal(pos));
+    else
+        cm->exec(ui->treeHives->mapToGlobal(pos));
+    cm->deleteLater();
 }
 
 void CMainWindow::valuesCtxMenu(const QPoint &pos)
 {
-    QModelIndex idx = ui->tableValues->indexAt(pos);
+    QModelIndex idx = valuesSortModel->mapToSource(ui->tableValues->indexAt(pos));
 
     QString name = valuesModel->getValueName(idx);
 
     QMenu cm(ui->tableValues);
     QAction* acm;
-    if (!name.isEmpty()) { // Context menu for value
+    if (idx.isValid()) { // Context menu for value
         acm = cm.addAction(tr("Modify"));
-        connect(acm,&QAction::triggered,[name](){
-            // TODO: create edit dialog here
-
+        connect(acm,&QAction::triggered,[this,idx](){
+            CValueEditor* dlg = new CValueEditor(this,idx);
+            if (!dlg->initFailed())
+                dlg->exec();
+            dlg->deleteLater();
         });
 
         cm.addSeparator();
 
         acm = cm.addAction(tr("Delete"));
-        connect(acm,&QAction::triggered,[this,name](){
-            valuesModel->deleteValue(name);
+        connect(acm,&QAction::triggered,[this,idx,name](){
+            if (!valuesModel->deleteValue(idx))
+                QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to delete value '%1'.")
+                                      .arg(name));
         });
 
         acm = cm.addAction(tr("Rename"));
-        connect(acm,&QAction::triggered,[this,name](){
+        acm->setEnabled(false); // temporary
+        connect(acm,&QAction::triggered,[this,name,idx](){
             bool ok;
-            QString new_name = QInputDialog::getText(this,tr("Registry Editor"),
+            QString name = QInputDialog::getText(this,tr("Registry Editor"),
                                                      tr("Rename registry value"),QLineEdit::Normal,name,&ok);
-            if (ok && !new_name.isEmpty())
-                valuesModel->renameValue(name,new_name);
+            if (ok && !name.isEmpty())
+                valuesModel->renameValue(idx,name);
         });
-    } else {
 
-    }
-
-    cm.exec(ui->tableValues->mapToGlobal(pos));
+        cm.exec(ui->tableValues->mapToGlobal(pos));
+    } else
+        treeCtxMenuPrivate(pos, true);
 }

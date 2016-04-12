@@ -6,6 +6,8 @@
 #include <QVector>
 #include <QString>
 
+class CValue;
+
 class CRegistryModel : public QAbstractItemModel
 {
     Q_OBJECT
@@ -41,10 +43,14 @@ public:
 
     void keyChanged(const QModelIndex& key, QTableView *table);
 
-    void renameValue(const QString& old_name, const QString& new_name);
-    void deleteValue(const QString& name);
+    bool renameValue(const QModelIndex &idx, const QString& name);
+    bool deleteValue(const QModelIndex &idx);
 
-    QString getValueName(const QModelIndex& index);
+    QString getValueName(const QModelIndex& idx);
+
+    CValue getValue(const QModelIndex& idx);
+
+    bool setValue(const QModelIndex& idx, const CValue& value);
 
 protected:
     int rowCount(const QModelIndex &parent) const;

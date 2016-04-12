@@ -24,11 +24,13 @@ public:
     int vDWORD;
     QString vString;
     QByteArray vOther;
+    struct vex_data m_vex;
     CValue();
     CValue(struct vex_data vex, const QString &str, const QByteArray &data);
     CValue &operator=(const CValue& other);
     bool operator==(const CValue& ref) const;
     bool operator!=(const CValue& ref) const;
+    bool isEmpty();
 };
 
 Q_DECLARE_METATYPE(CValue)
@@ -64,7 +66,10 @@ public:
     QString getKeyFullPath(struct hive *hdesc, struct nk_key* key);
     QVariant getValue(struct hive *hdesc, struct vex_data vex, int forceHex);
     QList<CValue> listValues(struct hive *hdesc, struct nk_key *key);
-    struct keyval *getKeyValue(hive *hdesc, keyval *kv, vex_data vex, int type, int exact);
+    struct keyval *getKeyValue(struct hive *hdesc, struct keyval *kv, struct vex_data vex,
+                               int type, int exact);
+    QString getValueTypeStr(int type);
+    bool setValue(struct hive *hdesc, const CValue& value);
 
 signals:
     void hiveOpened(int idx);

@@ -1,4 +1,5 @@
 #include <QIcon>
+#include <QMessageBox>
 #include "registrymodel.h"
 #include "global.h"
 #include <QDebug>
@@ -201,19 +202,33 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
     }
 }
 
-void CValuesModel::renameValue(const QString &old_name, const QString &new_name)
+bool CValuesModel::renameValue(const QModelIndex &idx, const QString &name)
 {
-    // TODO: rename
+    // TODO: rename (delete and recreate key? Need to think...)
+    return false;
 }
 
-void CValuesModel::deleteValue(const QString &name)
+bool CValuesModel::deleteValue(const QModelIndex &idx)
 {
-    // TODO: delete
+    if (!idx.isValid() || hive<0 || key_ofs<0)
+        return false;
+
+    QString name = getValueName(idx);
+    if (name.isEmpty() || (name==QString("(Default)")))
+        return false;
+
+    struct hive* h = cgl->reg->getHivePtr(hive);
+
+    beginRemoveRows(QModelIndex(),idx.row(),idx.row());
+    bool res = (del_value(h,key_ofs,name.toLocal8Bit().data(),0)==0);
+    endRemoveRows();
+
+    return res;
 }
 
-QString CValuesModel::getValueName(const QModelIndex &index)
+QString CValuesModel::getValueName(const QModelIndex &idx)
 {
-    if (!index.isValid() || hive<0 || key_ofs<0)
+    if (!idx.isValid() || hive<0 || key_ofs<0)
         return QString();
 
     struct hive* h = cgl->reg->getHivePtr(hive);
@@ -221,7 +236,7 @@ QString CValuesModel::getValueName(const QModelIndex &index)
 
     QList<CValue> vl = cgl->reg->listValues(h, k);
 
-    int row = index.row();
+    int row = idx.row();
 
     if  (row<0 || row>=vl.count()) return QString();
     CValue v = vl.at(row);
@@ -230,6 +245,38 @@ QString CValuesModel::getValueName(const QModelIndex &index)
         return QString();
     else
         return v.name;
+}
+
+CValue CValuesModel::getValue(const QModelIndex &idx)
+{
+    if (!idx.isValid() || hive<0 || key_ofs<0)
+        return CValue();
+
+    struct hive* h = cgl->reg->getHivePtr(hive);
+    struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
+
+    QList<CValue> vl = cgl->reg->listValues(h, k);
+
+    int row = idx.row();
+
+    if  (row<0 || row>=vl.count()) return CValue();
+
+    return vl.at(row);
+}
+
+bool CValuesModel::setValue(const QModelIndex &idx, const CValue &value)
+{
+    if (!idx.isValid() || hive<0 || key_ofs<0)
+        return false;
+
+    CValue orig = getValue(idx);
+
+    if (orig.isEmpty())
+        return false;
+
+    struct hive* h = cgl->reg->getHivePtr(hive);
+
+    return cgl->reg->setValue(h, value);
 }
 
 int CValuesModel::rowCount(const QModelIndex &parent) const
@@ -274,21 +321,11 @@ QVariant CValuesModel::data(const QModelIndex &index, int role) const
         if (col==0) {
             return v.name;
         } else if (col==1) {
-            switch (v.type) {
-                case REG_NONE: return QString("REG_NONE");
-                case REG_SZ: return QString("REG_SZ");
-                case REG_EXPAND_SZ: return QString("REG_EXPAND_SZ");
-                case REG_BINARY: return QString("REG_BINARY");
-                case REG_DWORD: return QString("REG_DWORD");
-                case REG_DWORD_BIG_ENDIAN: return QString("REG_DWORD_BIG_ENDIAN");
-                case REG_LINK: return QString("REG_LINK");
-                case REG_MULTI_SZ: return QString("REG_MULTI_SZ");
-                case REG_RESOURCE_LIST: return QString("REG_RESOURCE_LIST");
-                case REG_FULL_RESOURCE_DESCRIPTOR: return QString("REG_FULL_RESOURCE_DESCRIPTOR");
-                case REG_RESOURCE_REQUIREMENTS_LIST: return QString("REG_RESOURCE_REQUIREMENTS_LIST");
-                case REG_QWORD: return QString("REG_QWORD");
-                default: return QVariant();
-            }
+            QString s = cgl->reg->getValueTypeStr(v.type);
+            if (!s.isEmpty())
+                return s;
+            else
+                return QVariant();
         } else if (col==2) {
             if (v.type==REG_DWORD)
                 return tr("0x%1 (%2)").arg(v.vDWORD,8,16,QChar('0')).arg(v.vDWORD);
