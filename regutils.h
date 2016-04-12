@@ -68,8 +68,10 @@ public:
     QList<CValue> listValues(struct hive *hdesc, struct nk_key *key);
     struct keyval *getKeyValue(struct hive *hdesc, struct keyval *kv, struct vex_data vex,
                                int type, int exact);
+    struct keyval *getKeyValue(struct hive *hdesc, struct nk_key *key, struct keyval *kv,
+                               const QString &name, int type, int exact);
     QString getValueTypeStr(int type);
-    bool setValue(struct hive *hdesc, const CValue& value);
+    bool setValue(struct hive *hdesc, struct nk_key *key, const CValue& value);
 
 signals:
     void hiveOpened(int idx);

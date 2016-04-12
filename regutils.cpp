@@ -166,7 +166,7 @@ QList<int> CRegController::listKeysOfs(struct hive *hdesc, struct nk_key *key)
 
     QList<int> keys;
 
-    nkofs = (quintptr)key - (quintptr)(hdesc->buffer);
+    nkofs = cgl->reg->getKeyOfs(hdesc, key);
 
     if (key->id != 0x6b6e) {
         qCritical() << tr("Error: Not a 'nk' node at offset 0x%1!").arg(nkofs,0,16);
@@ -210,7 +210,7 @@ QString CRegController::getKeyName(struct hive* hdesc, struct nk_key* key)
         return ret;
 
     if (key->len_name <= 0) {
-        printf("ex_next: nk at 0x%0x has no name!\n",(quintptr)key);
+        qDebug() << tr("ex_next: nk at 0x%1 has no name!").arg((quintptr)key,8,16);
     } else if (key->type & 0x20) {
         ret = QString::fromLocal8Bit(key->keyname,key->len_name);
     } else {
@@ -229,6 +229,35 @@ QString CRegController::getKeyTooltip(struct hive *hdesc, struct nk_key *key)
     return ret;
 }
 
+struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct nk_key *key, keyval *kv,
+                                           const QString& name, int type, int exact)
+{
+    int nkofs;
+    int count = 0;
+    struct vex_data vex;
+    struct keyval *nkv = kv;
+
+    nkofs = cgl->reg->getKeyOfs(hdesc, key);
+
+    if (key->id != 0x6b6e) {
+        qCritical() << tr("Error: Not a 'nk' node at offset 0x%1!").arg(nkofs,0,16);
+        return nkv;
+    }
+
+    if (key->no_values) {
+        while ((ex_next_v(hdesc, nkofs, &count, &vex) > 0)) {
+            if (QString::fromLocal8Bit(vex.name)==name) {
+                nkv = getKeyValue(hdesc, nkv, vex, type, exact);
+                FREE(vex.name);
+                break;
+            }
+            FREE(vex.name);
+        }
+    }
+
+    return nkv;
+}
+
 struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct keyval *kv,
                            struct vex_data vex, int type, int exact )
 {
@@ -238,7 +267,7 @@ struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct keyval *kv
     struct db_key *db;
     void *addr;
 
-    qDebug() << vex.name << vex.size << getValueTypeStr(vex.type);
+    //qDebug() << vex.name << vex.size << getValueTypeStr(vex.type);
     l = vex.size;
     if (l == -1) return(NULL);  /* error */
     if (kv && (kv->len < l)) return(NULL); /* Check for overflow of supplied buffer */
@@ -265,7 +294,7 @@ struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct keyval *kv
     }
 
     kr->len = l;
-    qDebug() << kr->len;
+    //qDebug() << kr->len;
 
     if (l > VAL_DIRECT_LIMIT) {       /* Where do the db indirects start? seems to be around 16k */
         db = (struct db_key *)keydataptr;
@@ -372,13 +401,13 @@ int CRegController::getHive(const struct nk_key *key) const
 bool CRegController::checkKey(const nk_key *key) const
 {
     if (getHive(key)==-1) {
-        printf("Error: 'nk' not assigned to opened hives, at offset 0x%0x!\n",(quintptr)key);
-        qFatal("fatal");
+        QString msg = tr("Error: 'nk' not assigned to opened hives, at offset 0x%1!\n").arg((quintptr)key);
+        qFatal(msg.toUtf8().data());
         return false;
     }
     if (key->id != 0x6b6e) {
-        printf("Error: Not a 'nk' node at offset 0x%0x!\n",(quintptr)key);
-        qFatal("fatal");
+        QString msg = tr("Error: Not a 'nk' node at offset 0x%0x!\n").arg((quintptr)key);
+        qFatal(msg.toUtf8().data());
         return false;
     }
     return true;
@@ -417,17 +446,33 @@ QString CRegController::getValueTypeStr(int type)
     }
 }
 
-bool CRegController::setValue(struct hive *hdesc, const CValue &value)
+bool CRegController::setValue(struct hive *hdesc, struct nk_key* key, const CValue &value)
 {
     struct keyval *newkv = NULL;
 
     switch(value.type) {
         case REG_DWORD:
-            newkv = (struct keyval*)calloc(1,2*sizeof(int));
+            newkv = getKeyValue(hdesc, key, NULL, value.name, value.type, TPF_VK);
             newkv->data = value.vDWORD;
             break;
-        default:
+        case REG_SZ:
+        case REG_EXPAND_SZ:
+        case REG_MULTI_SZ:
+            // TODO: string values need to be saved
             break;
+        default: // blob
+            int newsize = value.vOther.size();
+            newkv = (struct keyval*)calloc(1,newsize+sizeof(int)+4);
+            memcpy((char *)&(newkv->data),value.vOther.data(),value.vOther.size());
+            newkv->len = newsize;
+            break;
+    }
+
+    if (newkv!=NULL) {
+        if (put_buf2val(hdesc,newkv,cgl->reg->getKeyOfs(hdesc,key),value.name.toLocal8Bit().data(),value.type,TPF_VK)) {
+            FREE(newkv);
+            return true;
+        }
     }
 
     return false;

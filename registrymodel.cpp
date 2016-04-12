@@ -275,8 +275,9 @@ bool CValuesModel::setValue(const QModelIndex &idx, const CValue &value)
         return false;
 
     struct hive* h = cgl->reg->getHivePtr(hive);
+    struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
 
-    return cgl->reg->setValue(h, value);
+    return cgl->reg->setValue(h, k, value);
 }
 
 int CValuesModel::rowCount(const QModelIndex &parent) const

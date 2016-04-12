@@ -12,6 +12,9 @@ CValueEditor::CValueEditor(QWidget *parent, const QModelIndex& idx) :
     m_initFailure = true;
     ui->setupUi(this);
 
+    ui->spinDWORD->setMinimum(INT_MIN);
+    ui->spinDWORD->setMaximum(INT_MAX);
+
     // replace widget placeholder with hex editor
     ui->page_hex->layout()->removeWidget(ui->widgetHex);
     ui->widgetHex->setParent(NULL);
