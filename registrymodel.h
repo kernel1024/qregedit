@@ -21,6 +21,7 @@ public:
 
     int getHiveIdx(const QModelIndex& index);
 
+    QString getKeyName(const QModelIndex &index) const;
 protected:
     QModelIndex index(int row, int column, const QModelIndex &parent) const;
     QModelIndex parent(const QModelIndex &child) const;
@@ -37,11 +38,13 @@ class CValuesModel : public QAbstractTableModel
 private:
     int key_ofs;
     int hive;
+    QString m_keyName;
 
 public:
     CValuesModel();
 
     void keyChanged(const QModelIndex& key, QTableView *table);
+    QString getCurrentKeyName() { return m_keyName; }
 
     bool renameValue(const QModelIndex &idx, const QString& name);
     bool deleteValue(const QModelIndex &idx);
@@ -51,6 +54,8 @@ public:
     CValue getValue(const QModelIndex& idx);
 
     bool setValue(const QModelIndex& idx, const CValue& value);
+
+    bool createValue(const CValue& value);
 
 protected:
     int rowCount(const QModelIndex &parent) const;

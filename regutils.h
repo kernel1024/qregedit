@@ -26,6 +26,7 @@ public:
     QByteArray vOther;
     struct vex_data m_vex;
     CValue();
+    CValue(int atype);
     CValue(struct vex_data vex, const QString &str, const QByteArray &data);
     CValue &operator=(const CValue& other);
     bool operator==(const CValue& ref) const;

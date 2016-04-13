@@ -492,6 +492,16 @@ CValue::CValue()
     vOther.clear();
 }
 
+CValue::CValue(int atype)
+{
+    name.clear();
+    type = atype;
+    size = 0;
+    vDWORD = 0;
+    vString.clear();
+    vOther.clear();
+}
+
 CValue::CValue(struct vex_data vex, const QString& str, const QByteArray& data)
 {
     name = QString(vex.name);

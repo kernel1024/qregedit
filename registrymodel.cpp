@@ -158,11 +158,26 @@ Qt::ItemFlags CRegistryModel::flags(const QModelIndex &index) const
     return QAbstractItemModel::flags(index);
 }
 
+QString CRegistryModel::getKeyName(const QModelIndex &index) const
+{
+    if (!index.isValid())
+        return QString();
+
+    struct nk_key* k;
+    struct hive* h;
+    int hive;
+    if (!cgl->reg->keyPrepare(index.internalPointer(),h,hive,k))
+        return QString();
+
+    return cgl->reg->getKeyFullPath(h, k);
+}
+
 CValuesModel::CValuesModel()
 {
     cgl->reg->valuesModel = this;
     key_ofs = -1;
     hive = -1;
+    m_keyName.clear();
 }
 
 void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
@@ -181,6 +196,7 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
 
         hive = -1;
         key_ofs = -1;
+        m_keyName.clear();
     }
 
     // Exit if no valid key passed
@@ -192,9 +208,11 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
     if (!cgl->reg->keyPrepare(key.internalPointer(),h,hive,ck)) {
         hive = -1;
         key_ofs = -1;
+        m_keyName.clear();
         return;
     }
     key_ofs = cgl->reg->getKeyOfs(h,ck);
+    m_keyName = cgl->reg->getKeyFullPath(h,ck);
 
     QList<CValue> vl = cgl->reg->listValues(h, ck);
     if (!vl.isEmpty()) {
@@ -210,7 +228,7 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
 
 bool CValuesModel::renameValue(const QModelIndex &idx, const QString &name)
 {
-    // TODO: rename (delete and recreate key? Need to think...)
+    // TODO: rename (delete and recreate value? Need to think...)
     return false;
 }
 
@@ -282,6 +300,12 @@ bool CValuesModel::setValue(const QModelIndex &idx, const CValue &value)
     struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
 
     return cgl->reg->setValue(h, k, value);
+}
+
+bool CValuesModel::createValue(const CValue &value)
+{
+
+    return false;
 }
 
 int CValuesModel::rowCount(const QModelIndex &parent) const

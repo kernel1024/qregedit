@@ -17,10 +17,11 @@ class CValueEditor : public QDialog
     Q_OBJECT
 
 public:
-    explicit CValueEditor(QWidget *parent, const QModelIndex &idx);
+    explicit CValueEditor(QWidget *parent, int createType, const QModelIndex &idx);
     ~CValueEditor();
 
     bool initFailed() { return m_initFailure; }
+    CValue getValue() { return m_value; }
 
 public slots:
     void saveValue();
@@ -31,6 +32,7 @@ private:
     QHexEdit *hexEditor;
     QModelIndex valueIndex;
     bool m_initFailure;
+    int m_createType;
 
     void prepareWidgets();
 };

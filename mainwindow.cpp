@@ -3,8 +3,10 @@
 #include <QIcon>
 #include <QMessageBox>
 #include <QInputDialog>
+#include <QClipboard>
 
 #include "global.h"
+#include "regutils.h"
 #include "mainwindow.h"
 #include "valueeditor.h"
 #include "ui_mainwindow.h"
@@ -35,6 +37,7 @@ CMainWindow::CMainWindow(QWidget *parent) :
     connect(ui->actionOpenHive,&QAction::triggered,this,&CMainWindow::openHive);
 
     connect(ui->treeHives,&QTreeView::clicked,this,&CMainWindow::showValues);
+    connect(ui->treeHives,&QTreeView::activated,this,&CMainWindow::showValues);
     connect(ui->treeHives,&QTreeView::customContextMenuRequested,
             this,&CMainWindow::treeCtxMenu);
 
@@ -109,21 +112,59 @@ void CMainWindow::hivePrepareClose(int idx)
 
 void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTable)
 {
-    QModelIndex idx;
+    QModelIndex idx = ui->treeHives->currentIndex();
     QMenu* cm;
     if (fromValuesTable) {
-        idx = ui->treeHives->currentIndex();
         cm = new QMenu(ui->tableValues);
     } else {
-        idx = ui->treeHives->indexAt(pos);
+        if (valuesModel->getCurrentKeyName()!=treeModel->getKeyName(idx)) {
+            showValues(idx);
+            QApplication::processEvents();
+        }
         cm = new QMenu(ui->treeHives);
     }
+
+    qDebug() << treeModel->getKeyName(idx);
 
     int hive = treeModel->getHiveIdx(idx);
     if (hive<0) return;
 
     QAction* acm;
-    // TODO: add key operations...
+    QMenu* ccm = cm->addMenu(tr("Create"));
+    {
+        acm = ccm->addAction(tr("Key"));
+        ccm->addSeparator();
+        acm = ccm->addAction(tr("String value"));
+        acm->setData(REG_SZ);
+        connect(acm,&QAction::triggered,this,&CMainWindow::createValue);
+        acm = ccm->addAction(tr("Binary value"));
+        acm->setData(REG_BINARY);
+        connect(acm,&QAction::triggered,this,&CMainWindow::createValue);
+        acm = ccm->addAction(tr("DWORD value"));
+        acm->setData(REG_DWORD);
+        connect(acm,&QAction::triggered,this,&CMainWindow::createValue);
+        acm = ccm->addAction(tr("Multistring value"));
+        acm->setData(REG_MULTI_SZ);
+        connect(acm,&QAction::triggered,this,&CMainWindow::createValue);
+        acm = ccm->addAction(tr("Expandable string value"));
+        acm->setData(REG_EXPAND_SZ);
+        connect(acm,&QAction::triggered,this,&CMainWindow::createValue);
+    }
+
+    if (idx.isValid()) {
+        cm->addSeparator();
+
+        acm = cm->addAction(tr("Rename"));
+        acm = cm->addAction(tr("Delete"));
+
+        cm->addSeparator();
+        acm = cm->addAction(tr("Copy key name"));
+        connect(acm,&QAction::triggered,[this,idx](){
+            QApplication::clipboard()->setText(treeModel->getKeyName(idx));
+        });
+    }
+
+    cm->addSeparator();
     acm = cm->addAction(tr("Close hive"));
     connect(acm,&QAction::triggered,[hive](){
         cgl->reg->closeTopHive(hive);
@@ -180,8 +221,27 @@ void CMainWindow::valuesModify(const QModelIndex &key)
 {
     QModelIndex idx = valuesSortModel->mapToSource(key);
 
-    CValueEditor* dlg = new CValueEditor(this,idx);
+    CValueEditor* dlg = new CValueEditor(this,REG_NONE,idx);
     if (!dlg->initFailed())
         dlg->exec();
+    dlg->deleteLater();
+}
+
+void CMainWindow::createValue()
+{
+    QAction* ac = qobject_cast<QAction *>(sender());
+    if (ac==NULL) return;
+    bool ok;
+    int type = ac->data().toInt(&ok);
+    if (!ok) return;
+
+    CValueEditor* dlg = new CValueEditor(this,type,QModelIndex());
+    if (!dlg->initFailed()) {
+        dlg->exec();
+
+        if (!valuesModel->createValue(dlg->getValue()))
+            QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to create new value."));
+    }
+
     dlg->deleteLater();
 }

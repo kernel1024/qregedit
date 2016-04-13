@@ -5,7 +5,7 @@
 #include "valueeditor.h"
 #include "ui_valueeditor.h"
 
-CValueEditor::CValueEditor(QWidget *parent, const QModelIndex& idx) :
+CValueEditor::CValueEditor(QWidget *parent, int createType, const QModelIndex& idx) :
     QDialog(parent),
     ui(new Ui::CValueEditor)
 {
@@ -34,10 +34,15 @@ CValueEditor::CValueEditor(QWidget *parent, const QModelIndex& idx) :
 
     if (cgl==NULL || !cgl->reg->valuesModel) return;
 
+    m_createType = createType;
     valueIndex = idx;
-    m_value = cgl->reg->valuesModel->getValue(valueIndex);
-
-    if (m_value.isEmpty()) return;
+    if (m_createType!=REG_NONE) {
+        m_value = CValue(m_createType);
+    } else {
+        m_value = cgl->reg->valuesModel->getValue(valueIndex);
+        if (m_value.isEmpty()) return;
+    }
+    ui->editValueName->setReadOnly(m_createType==REG_NONE);
 
     prepareWidgets();
 
@@ -53,7 +58,11 @@ CValueEditor::~CValueEditor()
 
 void CValueEditor::saveValue()
 {
-    if (!valueIndex.isValid() || cgl==NULL || !cgl->reg->valuesModel) return;
+    if ((!valueIndex.isValid() && (m_createType==REG_NONE))
+            || cgl==NULL || !cgl->reg->valuesModel) return;
+
+    if (m_createType!=REG_NONE)
+        m_value.name = ui->editValueName->text();
 
     switch (m_value.type) {
         case REG_DWORD:
@@ -71,11 +80,14 @@ void CValueEditor::saveValue()
             break;
     }
 
-    if (!cgl->reg->valuesModel->setValue(valueIndex,m_value))
-        QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to change value '%1'.")
-                              .arg(m_value.name));
-    else
-        accept();
+    if (m_createType==REG_NONE) {
+        if (!cgl->reg->valuesModel->setValue(valueIndex,m_value))
+            QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to change value '%1'.")
+                                  .arg(m_value.name));
+        return;
+    }
+
+    accept();
 }
 
 void CValueEditor::prepareWidgets()
