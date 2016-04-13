@@ -36,6 +36,7 @@ public slots:
     void hivePrepareClose(int idx);
     void treeCtxMenu(const QPoint& pos) { treeCtxMenuPrivate(pos, false); }
     void valuesCtxMenu(const QPoint& pos);
+    void valuesModify(const QModelIndex& key);
 
 };
 

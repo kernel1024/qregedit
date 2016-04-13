@@ -167,6 +167,7 @@ CValuesModel::CValuesModel()
 
 void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
 {
+    // Close old key
     if (hive>=0 && key_ofs>=0) {
         struct hive* h = cgl->reg->getHivePtr(hive);
         struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
@@ -177,10 +178,15 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
             beginRemoveRows(QModelIndex(),0,vl.count()-1);
             endRemoveRows();
         }
+
+        hive = -1;
+        key_ofs = -1;
     }
 
+    // Exit if no valid key passed
     if (!key.isValid()) return;
 
+    // Read new key
     struct nk_key* ck;
     struct hive* h;
     if (!cgl->reg->keyPrepare(key.internalPointer(),h,hive,ck)) {
@@ -213,14 +219,15 @@ bool CValuesModel::deleteValue(const QModelIndex &idx)
     if (!idx.isValid() || hive<0 || key_ofs<0)
         return false;
 
-    QString name = getValueName(idx);
-    if (name.isEmpty() || (name==QString("(Default)")))
+    if (getValue(idx).isDefault())
         return false;
 
     struct hive* h = cgl->reg->getHivePtr(hive);
 
+    QString name = getValueName(idx);
+
     beginRemoveRows(QModelIndex(),idx.row(),idx.row());
-    bool res = (del_value(h,key_ofs,name.toLocal8Bit().data(),0)==0);
+    bool res = (del_value(h,key_ofs,name.toUtf8().data(),TPF_EXACT)==0);
     endRemoveRows();
 
     return res;
@@ -241,10 +248,7 @@ QString CValuesModel::getValueName(const QModelIndex &idx)
     if  (row<0 || row>=vl.count()) return QString();
     CValue v = vl.at(row);
 
-    if (v.name==QString("(Default)"))
-        return QString();
-    else
-        return v.name;
+    return v.name;
 }
 
 CValue CValuesModel::getValue(const QModelIndex &idx)

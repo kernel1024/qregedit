@@ -1544,30 +1544,45 @@ int vlist_find(struct hive *hdesc, int vlistofs, int numval, char *name, int typ
   int i,vkofs,len;
   int32_t *vlistkey;
   int approx = -1;
+  char *regname = NULL;
+  int nlen = 0;
 
-  len = strlen(name);
   vlistkey = (int32_t *)(hdesc->buffer + vlistofs);
 
-  //  printf("vlist_find: <%s> len = %d\n",name,len);
+  //fprintf(stderr,"vlist_find: <%s> len = %d\n",name,len);
 
   for (i = 0; i < numval; i++) {
     vkofs = vlistkey[i] + 0x1004;
     vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
-    if (vkkey->len_name == 0 && *name == '@' && len == 1) { /* @ is alias for nameless value */
-      return(i);
+
+    regname = name;
+    len = strlen(regname);
+    if (!(vkkey->flag & 1)) { // ucs2 encoded name
+        regname = string_prog2regw(name,strlen(name),&nlen);
+        len = nlen;
     }
 
-    // printf("vlist_find: matching against: <%s> len = %d\n",vkkey->keyname,vkkey->len_name);
+    if (vkkey->len_name == 0 && *regname == '@' && len == 1) { /* @ is alias for nameless value */
+        if (nlen>0) FREE(regname);
+      return(i);
+    }
+    //fprintf(stderr,"vlist_find: source: <%s> len = %d\n",regname,nlen);
+    //fprintf(stderr,"vlist_find: matching against: <%s> len = %d\n",vkkey->keyname,vkkey->len_name);
 
     if ( (type & TPF_EXACT) && vkkey->len_name != len ) continue;  /* Skip if exact match and not exact size */
 
     if ( vkkey->len_name >= len ) {                  /* Only check for names that are longer or equal than we seek */
-      if ( !strncmp(name, vkkey->keyname, len) ) {    /* Name match */
-	if (vkkey->len_name == len) return(i);        /* Exact match always best, returns */
+      //if ( !strncmp(regname, vkkey->keyname, len) ) {    /* Name match */
+      if ( !memcmp(regname, vkkey->keyname, len) ) {    /* Name match */
+    if (vkkey->len_name == len) {
+        if (nlen>0) FREE(regname);
+        return(i);        /* Exact match always best, returns */
+    }
 	if (approx == -1) approx = i;                 /* Else remember first partial match */
       }
     }
-
+    if (nlen>0) FREE(regname);
+    nlen = 0;
   }
   return(approx);
 
@@ -2339,22 +2354,22 @@ int del_value(struct hive *hdesc, int nkofs, char *name, int exact)
 
   nk = (struct nk_key *)(hdesc->buffer + nkofs);
   if (nk->id != 0x6b6e) {
-    printf("del_value: Key pointer not to 'nk' node!\n");
+    fprintf(stderr,"del_value: Key pointer not to 'nk' node!\n");
     return(1);
   }
 
   if (!nk->no_values) {
-    printf("del_value: Key has no values!\n");
+    fprintf(stderr,"del_value: Key has no values!\n");
     return(1);
   }
 
   vlistofs = nk->ofs_vallist + 0x1004;
   vlistkey = (int32_t *)(hdesc->buffer + vlistofs);
 
-  slot = vlist_find(hdesc, vlistofs, nk->no_values, name, TPF_VK);
+  slot = vlist_find(hdesc, vlistofs, nk->no_values, name, TPF_VK | (exact & TPF_EXACT));
 
   if (slot == -1) {
-    printf("del_value: value %s not found!\n",name);
+    fprintf(stderr,"del_value: value %s not found!\n",name);
     return(1);
   }
 

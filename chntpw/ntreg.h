@@ -59,6 +59,7 @@
 
 #define REG_MAX 12
 
+extern const char *val_types[REG_MAX+1];
 
 /* The first page of the registry file is some kind of header, lot of
  * it's contents is unknown, and seems to be mostly NULLs anyway.

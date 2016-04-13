@@ -9,8 +9,6 @@
 #include "valueeditor.h"
 #include "ui_mainwindow.h"
 
-// TODO: replace all toLocal8Bit with centralized configurable charset codec
-
 CMainWindow::CMainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
@@ -39,8 +37,12 @@ CMainWindow::CMainWindow(QWidget *parent) :
     connect(ui->treeHives,&QTreeView::clicked,this,&CMainWindow::showValues);
     connect(ui->treeHives,&QTreeView::customContextMenuRequested,
             this,&CMainWindow::treeCtxMenu);
+
     connect(ui->tableValues,&QTableView::customContextMenuRequested,
             this,&CMainWindow::valuesCtxMenu);
+    connect(ui->tableValues,&QTableView::activated,
+            this,&CMainWindow::valuesModify);
+
     connect(cgl->reg,&CRegController::hiveAboutToClose,this,&CMainWindow::hivePrepareClose);
 
     centerWindow();
@@ -136,7 +138,8 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
 
 void CMainWindow::valuesCtxMenu(const QPoint &pos)
 {
-    QModelIndex idx = valuesSortModel->mapToSource(ui->tableValues->indexAt(pos));
+    QModelIndex uidx = ui->tableValues->indexAt(pos);
+    QModelIndex idx = valuesSortModel->mapToSource(uidx);
 
     QString name = valuesModel->getValueName(idx);
 
@@ -144,16 +147,14 @@ void CMainWindow::valuesCtxMenu(const QPoint &pos)
     QAction* acm;
     if (idx.isValid()) { // Context menu for value
         acm = cm.addAction(tr("Modify"));
-        connect(acm,&QAction::triggered,[this,idx](){
-            CValueEditor* dlg = new CValueEditor(this,idx);
-            if (!dlg->initFailed())
-                dlg->exec();
-            dlg->deleteLater();
+        connect(acm,&QAction::triggered,[this,uidx](){
+            valuesModify(uidx);
         });
 
         cm.addSeparator();
 
         acm = cm.addAction(tr("Delete"));
+        acm->setDisabled(valuesModel->getValue(idx).isDefault());
         connect(acm,&QAction::triggered,[this,idx,name](){
             if (!valuesModel->deleteValue(idx))
                 QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to delete value '%1'.")
@@ -173,4 +174,14 @@ void CMainWindow::valuesCtxMenu(const QPoint &pos)
         cm.exec(ui->tableValues->mapToGlobal(pos));
     } else
         treeCtxMenuPrivate(pos, true);
+}
+
+void CMainWindow::valuesModify(const QModelIndex &key)
+{
+    QModelIndex idx = valuesSortModel->mapToSource(key);
+
+    CValueEditor* dlg = new CValueEditor(this,idx);
+    if (!dlg->initFailed())
+        dlg->exec();
+    dlg->deleteLater();
 }

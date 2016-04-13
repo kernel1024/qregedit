@@ -31,6 +31,7 @@ public:
     bool operator==(const CValue& ref) const;
     bool operator!=(const CValue& ref) const;
     bool isEmpty();
+    bool isDefault();
 };
 
 Q_DECLARE_METATYPE(CValue)
@@ -46,6 +47,8 @@ public:
     QPointer<CValuesModel> valuesModel;
 
     CRegController(QObject* parent = 0);
+
+    QByteArray toUtf16(const QString &str);
 
     bool openTopHive(const QString &filename);
     bool saveTopHive(int idx);

@@ -3,12 +3,22 @@
 #include "global.h"
 #include <QApplication>
 #include <QMessageBox>
+#include <QTextCodec>
 #include <QDebug>
 
 CRegController::CRegController(QObject *parent)
     : QObject(parent)
 {
     hives.clear();
+}
+
+QByteArray CRegController::toUtf16(const QString &str)
+{
+    QTextCodec *codec = QTextCodec::codecForName("UTF-16");
+    QTextEncoder *encoderWithoutBom = codec->makeEncoder( QTextCodec::IgnoreHeader );
+    QByteArray ba  = encoderWithoutBom ->fromUnicode( str );
+    ba.append('\0'); ba.append('\0');
+    return ba;
 }
 
 bool CRegController::openTopHive(const QString &filename)
@@ -225,7 +235,7 @@ QString CRegController::getKeyTooltip(struct hive *hdesc, struct nk_key *key)
 {
     QString ret;
     if (getKeyOfs(hdesc,key)==(hdesc->rootofs+4))
-        ret = QString::fromLocal8Bit(hdesc->filename);
+        ret = QString(hdesc->filename);
     return ret;
 }
 
@@ -246,7 +256,7 @@ struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct nk_key *ke
 
     if (key->no_values) {
         while ((ex_next_v(hdesc, nkofs, &count, &vex) > 0)) {
-            if (QString::fromLocal8Bit(vex.name)==name) {
+            if (QString(vex.name)==name) {
                 nkv = getKeyValue(hdesc, nkv, vex, type, exact);
                 FREE(vex.name);
                 break;
@@ -357,7 +367,7 @@ QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, int f
                 if (type == REG_SZ) break;
             }
 
-            res = QString::fromLocal8Bit(string);
+            res = QString(string);
             FREE(string);
             break;
         case REG_DWORD:
@@ -401,13 +411,11 @@ int CRegController::getHive(const struct nk_key *key) const
 bool CRegController::checkKey(const nk_key *key) const
 {
     if (getHive(key)==-1) {
-        QString msg = tr("Error: 'nk' not assigned to opened hives, at offset 0x%1!\n").arg((quintptr)key);
-        qFatal(msg.toUtf8().data());
+        qCritical() << tr("Error: 'nk' not assigned to opened hives, at offset 0x%1!\n").arg((quintptr)key);
         return false;
     }
     if (key->id != 0x6b6e) {
-        QString msg = tr("Error: Not a 'nk' node at offset 0x%0x!\n").arg((quintptr)key);
-        qFatal(msg.toUtf8().data());
+        qCritical() << tr("Error: Not a 'nk' node at offset 0x%0x!\n").arg((quintptr)key);
         return false;
     }
     return true;
@@ -429,26 +437,17 @@ bool CRegController::keyPrepare(const void *ptr, struct hive *&hive, int& hnum, 
 
 QString CRegController::getValueTypeStr(int type)
 {
-    switch (type) {
-        case REG_NONE: return QString("REG_NONE");
-        case REG_SZ: return QString("REG_SZ");
-        case REG_EXPAND_SZ: return QString("REG_EXPAND_SZ");
-        case REG_BINARY: return QString("REG_BINARY");
-        case REG_DWORD: return QString("REG_DWORD");
-        case REG_DWORD_BIG_ENDIAN: return QString("REG_DWORD_BIG_ENDIAN");
-        case REG_LINK: return QString("REG_LINK");
-        case REG_MULTI_SZ: return QString("REG_MULTI_SZ");
-        case REG_RESOURCE_LIST: return QString("REG_RESOURCE_LIST");
-        case REG_FULL_RESOURCE_DESCRIPTOR: return QString("REG_FULL_RESOURCE_DESCRIPTOR");
-        case REG_RESOURCE_REQUIREMENTS_LIST: return QString("REG_RESOURCE_REQUIREMENTS_LIST");
-        case REG_QWORD: return QString("REG_QWORD");
-        default: return QString();
-    }
+    if (type>=REG_NONE && type<REG_MAX)
+        return QString(val_types[type]);
+    else
+        return QString();
 }
 
 bool CRegController::setValue(struct hive *hdesc, struct nk_key* key, const CValue &value)
 {
     struct keyval *newkv = NULL;
+    int newsize = 0;
+    QByteArray str;
 
     switch(value.type) {
         case REG_DWORD:
@@ -458,10 +457,14 @@ bool CRegController::setValue(struct hive *hdesc, struct nk_key* key, const CVal
         case REG_SZ:
         case REG_EXPAND_SZ:
         case REG_MULTI_SZ:
-            // TODO: string values need to be saved
+            str = toUtf16(value.vString);
+            newsize = str.size();
+            newkv=(struct keyval*)calloc(1,newsize+sizeof(int));
+            newkv->len = newsize;
+            memcpy((char*)&(newkv->data),str.data(),newsize);
             break;
         default: // blob
-            int newsize = value.vOther.size();
+            newsize = value.vOther.size();
             newkv = (struct keyval*)calloc(1,newsize+sizeof(int)+4);
             memcpy((char *)&(newkv->data),value.vOther.data(),value.vOther.size());
             newkv->len = newsize;
@@ -469,10 +472,10 @@ bool CRegController::setValue(struct hive *hdesc, struct nk_key* key, const CVal
     }
 
     if (newkv!=NULL) {
-        if (put_buf2val(hdesc,newkv,cgl->reg->getKeyOfs(hdesc,key),value.name.toLocal8Bit().data(),value.type,TPF_VK)) {
-            FREE(newkv);
-            return true;
-        }
+        bool res = put_buf2val(hdesc,newkv,cgl->reg->getKeyOfs(hdesc,key),
+                               value.name.toUtf8().data(),value.type,TPF_VK_EXACT)!=0;
+        FREE(newkv);
+        return res;
     }
 
     return false;
@@ -491,9 +494,9 @@ CValue::CValue()
 
 CValue::CValue(struct vex_data vex, const QString& str, const QByteArray& data)
 {
-    name = QString::fromLocal8Bit(vex.name);
+    name = QString(vex.name);
     if (name.isEmpty())
-        name = QString("(Default)");
+        name = QString("@");
     type = vex.type;
     size = vex.size;
     vDWORD = vex.val;
@@ -526,4 +529,9 @@ bool CValue::operator!=(const CValue &ref) const
 bool CValue::isEmpty()
 {
     return (name.isEmpty() && type==REG_NONE);
+}
+
+bool CValue::isDefault()
+{
+    return ((name.isEmpty() || name==QString("@")) && !isEmpty());
 }
