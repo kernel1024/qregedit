@@ -176,15 +176,15 @@ CValuesModel::CValuesModel()
 {
     cgl->reg->valuesModel = this;
     key_ofs = -1;
-    hive = -1;
+    hive_num = -1;
     m_keyName.clear();
 }
 
 void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
 {
     // Close old key
-    if (hive>=0 && key_ofs>=0) {
-        struct hive* h = cgl->reg->getHivePtr(hive);
+    if (hive_num>=0 && key_ofs>=0) {
+        struct hive* h = cgl->reg->getHivePtr(hive_num);
         struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
 
         QList<CValue> vl = cgl->reg->listValues(h, k);
@@ -194,7 +194,7 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
             endRemoveRows();
         }
 
-        hive = -1;
+        hive_num = -1;
         key_ofs = -1;
         m_keyName.clear();
     }
@@ -205,8 +205,8 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
     // Read new key
     struct nk_key* ck;
     struct hive* h;
-    if (!cgl->reg->keyPrepare(key.internalPointer(),h,hive,ck)) {
-        hive = -1;
+    if (!cgl->reg->keyPrepare(key.internalPointer(),h,hive_num,ck)) {
+        hive_num = -1;
         key_ofs = -1;
         m_keyName.clear();
         return;
@@ -234,18 +234,19 @@ bool CValuesModel::renameValue(const QModelIndex &idx, const QString &name)
 
 bool CValuesModel::deleteValue(const QModelIndex &idx)
 {
-    if (!idx.isValid() || hive<0 || key_ofs<0)
+    if (!idx.isValid() || hive_num<0 || key_ofs<0)
         return false;
 
     if (getValue(idx).isDefault())
         return false;
 
-    struct hive* h = cgl->reg->getHivePtr(hive);
+    struct hive* h = cgl->reg->getHivePtr(hive_num);
+    struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
 
     QString name = getValueName(idx);
 
     beginRemoveRows(QModelIndex(),idx.row(),idx.row());
-    bool res = (del_value(h,key_ofs,name.toUtf8().data(),TPF_EXACT)==0);
+    bool res = cgl->reg->deleteValue(h,k,name);
     endRemoveRows();
 
     return res;
@@ -253,10 +254,10 @@ bool CValuesModel::deleteValue(const QModelIndex &idx)
 
 QString CValuesModel::getValueName(const QModelIndex &idx)
 {
-    if (!idx.isValid() || hive<0 || key_ofs<0)
+    if (!idx.isValid() || hive_num<0 || key_ofs<0)
         return QString();
 
-    struct hive* h = cgl->reg->getHivePtr(hive);
+    struct hive* h = cgl->reg->getHivePtr(hive_num);
     struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
 
     QList<CValue> vl = cgl->reg->listValues(h, k);
@@ -271,10 +272,10 @@ QString CValuesModel::getValueName(const QModelIndex &idx)
 
 CValue CValuesModel::getValue(const QModelIndex &idx)
 {
-    if (!idx.isValid() || hive<0 || key_ofs<0)
+    if (!idx.isValid() || hive_num<0 || key_ofs<0)
         return CValue();
 
-    struct hive* h = cgl->reg->getHivePtr(hive);
+    struct hive* h = cgl->reg->getHivePtr(hive_num);
     struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
 
     QList<CValue> vl = cgl->reg->listValues(h, k);
@@ -288,7 +289,7 @@ CValue CValuesModel::getValue(const QModelIndex &idx)
 
 bool CValuesModel::setValue(const QModelIndex &idx, const CValue &value)
 {
-    if (!idx.isValid() || hive<0 || key_ofs<0)
+    if (!idx.isValid() || hive_num<0 || key_ofs<0)
         return false;
 
     CValue orig = getValue(idx);
@@ -296,7 +297,7 @@ bool CValuesModel::setValue(const QModelIndex &idx, const CValue &value)
     if (orig.isEmpty())
         return false;
 
-    struct hive* h = cgl->reg->getHivePtr(hive);
+    struct hive* h = cgl->reg->getHivePtr(hive_num);
     struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
 
     return cgl->reg->setValue(h, k, value);
@@ -304,7 +305,20 @@ bool CValuesModel::setValue(const QModelIndex &idx, const CValue &value)
 
 bool CValuesModel::createValue(const CValue &value)
 {
+    if (value.isEmpty() || hive_num<0 || key_ofs<0)
+        return false;
 
+    struct hive* h = cgl->reg->getHivePtr(hive_num);
+    struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
+
+    beginInsertRows(QModelIndex(),rowCount(QModelIndex()),rowCount(QModelIndex()));
+    if (cgl->reg->createValue(h, k, value.type, value.name))
+        if (cgl->reg->setValue(h, k, value)) {
+            endInsertRows();
+            return true;
+        }
+
+    endInsertRows();
     return false;
 }
 
@@ -312,10 +326,10 @@ int CValuesModel::rowCount(const QModelIndex &parent) const
 {
     Q_UNUSED(parent)
 
-    if (hive<0 || key_ofs<0)
+    if (hive_num<0 || key_ofs<0)
         return 0;
 
-    struct hive* h = cgl->reg->getHivePtr(hive);
+    struct hive* h = cgl->reg->getHivePtr(hive_num);
     struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
 
     QList<CValue> vl = cgl->reg->listValues(h, k);
@@ -332,10 +346,10 @@ int CValuesModel::columnCount(const QModelIndex &parent) const
 
 QVariant CValuesModel::data(const QModelIndex &index, int role) const
 {
-    if (!index.isValid() || hive<0 || key_ofs<0)
+    if (!index.isValid() || hive_num<0 || key_ofs<0)
         return QVariant();
 
-    struct hive* h = cgl->reg->getHivePtr(hive);
+    struct hive* h = cgl->reg->getHivePtr(hive_num);
     struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
 
     QList<CValue> vl = cgl->reg->listValues(h, k);
@@ -359,10 +373,19 @@ QVariant CValuesModel::data(const QModelIndex &index, int role) const
             if (v.type==REG_DWORD)
                 return tr("0x%1 (%2)").arg(v.vDWORD,8,16,QChar('0')).arg(v.vDWORD);
             if (v.type==REG_SZ ||
-                    v.type==REG_EXPAND_SZ ||
-                    v.type==REG_MULTI_SZ)
+                    v.type==REG_EXPAND_SZ)
                 return v.vString;
-            return QString::fromLatin1(vl.at(row).vOther.toHex());
+            if (v.type==REG_MULTI_SZ)
+            {
+                QString s = v.vString;
+                s.replace('\n',' ');
+                return s;
+            }
+            QString s = QString::fromLatin1(vl.at(row).vOther.toHex()).toUpper();
+            int step = 2;
+            for (int i = step; i <= s.size(); i+=step+1)
+                s.insert(i," ");
+            return s;
         }
     } else if (role == Qt::DecorationRole) {
         if (col==0) {

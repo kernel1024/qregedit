@@ -482,6 +482,18 @@ bool CRegController::setValue(struct hive *hdesc, struct nk_key* key, const CVal
 
 }
 
+bool CRegController::deleteValue(struct hive *hdesc, struct nk_key *key, const QString &vname)
+{
+    QString s = vname;
+    return del_value(hdesc, cgl->reg->getKeyOfs(hdesc, key), s.toUtf8().data(), TPF_EXACT)==0;
+}
+
+bool CRegController::createValue(struct hive *hdesc, struct nk_key *key, int vtype, const QString &vname)
+{
+    QString s = vname;
+    return add_value(hdesc, cgl->reg->getKeyOfs(hdesc, key), s.toUtf8().data(), vtype)!=NULL;
+}
+
 CValue::CValue()
 {
     name.clear();
@@ -536,12 +548,12 @@ bool CValue::operator!=(const CValue &ref) const
     return !operator ==(ref);
 }
 
-bool CValue::isEmpty()
+bool CValue::isEmpty() const
 {
     return (name.isEmpty() && type==REG_NONE);
 }
 
-bool CValue::isDefault()
+bool CValue::isDefault() const
 {
     return ((name.isEmpty() || name==QString("@")) && !isEmpty());
 }

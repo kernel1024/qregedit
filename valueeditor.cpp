@@ -23,6 +23,7 @@ CValueEditor::CValueEditor(QWidget *parent, int createType, const QModelIndex& i
     hexEditor = new QHexEdit(this);
     hexEditor->setObjectName(QString("hexEditor"));
     ui->page_hex->layout()->addWidget(hexEditor);
+    hexEditor->setOverwriteMode(false);
 
     // various event handlers
     connect(ui->radioDWORD10,&QRadioButton::toggled,[this](bool checked){
@@ -80,12 +81,12 @@ void CValueEditor::saveValue()
             break;
     }
 
-    if (m_createType==REG_NONE) {
-        if (!cgl->reg->valuesModel->setValue(valueIndex,m_value))
+    if (m_createType==REG_NONE)
+        if (!cgl->reg->valuesModel->setValue(valueIndex,m_value)) {
             QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to change value '%1'.")
                                   .arg(m_value.name));
-        return;
-    }
+            return;
+        }
 
     accept();
 }

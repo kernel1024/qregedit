@@ -31,8 +31,8 @@ public:
     CValue &operator=(const CValue& other);
     bool operator==(const CValue& ref) const;
     bool operator!=(const CValue& ref) const;
-    bool isEmpty();
-    bool isDefault();
+    bool isEmpty() const;
+    bool isDefault() const;
 };
 
 Q_DECLARE_METATYPE(CValue)
@@ -68,6 +68,7 @@ public:
     QString getKeyName(struct hive *hdesc, struct nk_key* key);
     QString getKeyTooltip(struct hive *hdesc, struct nk_key* key);
     QString getKeyFullPath(struct hive *hdesc, struct nk_key* key);
+
     QVariant getValue(struct hive *hdesc, struct vex_data vex, int forceHex);
     QList<CValue> listValues(struct hive *hdesc, struct nk_key *key);
     struct keyval *getKeyValue(struct hive *hdesc, struct keyval *kv, struct vex_data vex,
@@ -76,7 +77,8 @@ public:
                                const QString &name, int type, int exact);
     QString getValueTypeStr(int type);
     bool setValue(struct hive *hdesc, struct nk_key *key, const CValue& value);
-
+    bool deleteValue(struct hive *hdesc, struct nk_key *key, const QString& vname);
+    bool createValue(struct hive *hdesc, struct nk_key *key, int vtype, const QString& vname);
 signals:
     void hiveOpened(int idx);
     void hiveClosed(int old_idx);

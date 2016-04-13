@@ -1557,7 +1557,8 @@ int vlist_find(struct hive *hdesc, int vlistofs, int numval, char *name, int typ
 
     regname = name;
     len = strlen(regname);
-    if (!(vkkey->flag & 1)) { // ucs2 encoded name
+    nlen = 0;
+    if ((!(vkkey->flag & 1)) && (vkkey->len_name>0)) { // ucs2 encoded name, no nameless value
         regname = string_prog2regw(name,strlen(name),&nlen);
         len = nlen;
     }
@@ -1582,7 +1583,6 @@ int vlist_find(struct hive *hdesc, int vlistofs, int numval, char *name, int typ
       }
     }
     if (nlen>0) FREE(regname);
-    nlen = 0;
   }
   return(approx);
 
@@ -2197,9 +2197,10 @@ int alloc_val_data(struct hive *hdesc, int vofs, char *path, int size,int exact)
 struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type)
 {
   struct nk_key *nk;
-  int oldvlist = 0, newvlist, newvkofs;
+  int oldvlist = 0, newvlist, newvkofs, nlen, len;
   struct vk_key *newvkkey;
   char *blank="";
+  char *buf;
 
   if (!name || !*name) return(NULL);
 
@@ -2216,6 +2217,18 @@ struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type)
   }
 
   if (!strcmp(name,"@")) name = blank;
+
+  // optional encode name to ucs2
+  buf = name;
+  nlen = 0;
+  len = strlen(name);
+  for (;*buf!='\0';buf++)
+      if (*buf & 0x80) break;
+  if (*buf!='\0') { // found some non-Latin1 character. Use UCS2
+      buf = string_prog2regw(name, len, &nlen);
+      len = nlen;
+  } else
+      buf = name;
  
   if (nk->no_values) oldvlist = nk->ofs_vallist;
 
@@ -2232,7 +2245,7 @@ struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type)
   }
 
   /* Allocate value descriptor including its name */
-  newvkofs = alloc_block(hdesc, newvlist, sizeof(struct vk_key) + strlen(name));
+  newvkofs = alloc_block(hdesc, newvlist, sizeof(struct vk_key) + len);
   if (!newvkofs) {
     printf("add_value: failed to allocate value descriptor\n");
     free_block(hdesc, newvlist);
@@ -2251,7 +2264,7 @@ struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type)
 
   /* Fill in vk struct */
   newvkkey->id = 0x6b76;
-  newvkkey->len_name = strlen(name);
+  newvkkey->len_name = len;
   if (type == REG_DWORD || type == REG_DWORD_BIG_ENDIAN) {
     newvkkey->len_data = 0x80000004;  /* Prime the DWORD inline stuff */
   } else {
@@ -2259,9 +2272,10 @@ struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type)
   }
   newvkkey->ofs_data = 0;
   newvkkey->val_type = type;
-  newvkkey->flag     = newvkkey->len_name ? 1 : 0;  /* Seems to be 1, but 0 for no name default value */
+  //newvkkey->flag     = newvkkey->len_name ? 1 : 0;  /* Seems to be 1, but 0 for no name default value */
+  newvkkey->flag     = (len>0 && nlen==0) ? 1 : 0; // Flag = 1 for ANSI encoding
   newvkkey->dummy1   = 0;
-  memcpy((char *)&newvkkey->keyname, name, newvkkey->len_name);  /* And copy name */
+  memcpy((char *)&newvkkey->keyname, buf, newvkkey->len_name);  /* And copy name */
 
   /* Finally update the key and free the old valuelist */
   nk->no_values++;

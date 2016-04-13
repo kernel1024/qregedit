@@ -49,6 +49,10 @@ CMainWindow::CMainWindow(QWidget *parent) :
     connect(cgl->reg,&CRegController::hiveAboutToClose,this,&CMainWindow::hivePrepareClose);
 
     centerWindow();
+
+    QStringList args = QApplication::arguments();
+    for (int i=1;i<args.count();i++)
+        cgl->reg->openTopHive(args.at(i));
 }
 
 CMainWindow::~CMainWindow()
@@ -123,8 +127,6 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
         }
         cm = new QMenu(ui->treeHives);
     }
-
-    qDebug() << treeModel->getKeyName(idx);
 
     int hive = treeModel->getHiveIdx(idx);
     if (hive<0) return;
@@ -237,10 +239,9 @@ void CMainWindow::createValue()
 
     CValueEditor* dlg = new CValueEditor(this,type,QModelIndex());
     if (!dlg->initFailed()) {
-        dlg->exec();
-
-        if (!valuesModel->createValue(dlg->getValue()))
-            QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to create new value."));
+        if (dlg->exec()==QDialog::Accepted)
+            if (!valuesModel->createValue(dlg->getValue()))
+                QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to create new value."));
     }
 
     dlg->deleteLater();

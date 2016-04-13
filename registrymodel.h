@@ -37,7 +37,7 @@ class CValuesModel : public QAbstractTableModel
     Q_OBJECT
 private:
     int key_ofs;
-    int hive;
+    int hive_num;
     QString m_keyName;
 
 public:
