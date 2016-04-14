@@ -402,6 +402,12 @@ bool CRegController::createKey(hive *hdesc, nk_key *parent, const QString &name)
     return (add_key(hdesc, cgl->reg->getKeyOfs(hdesc, parent), s.toUtf8().data())!=NULL);
 }
 
+void CRegController::deleteKey(hive *hdesc, nk_key *parent, const QString &name)
+{
+    QString s = name;
+    rdel_keys(hdesc, s.toUtf8().data(), cgl->reg->getKeyOfs(hdesc, parent));
+}
+
 int CRegController::getHive(const struct nk_key *key) const
 {
     quintptr k = (quintptr)(key);

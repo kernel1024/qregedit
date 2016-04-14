@@ -23,6 +23,7 @@ public:
 
     QString getKeyName(const QModelIndex &index) const;
     bool createKey(const QModelIndex &parent, const QString& name);
+    void deleteKey(const QModelIndex &idx);
 protected:
     QModelIndex index(int row, int column, const QModelIndex &parent) const;
     QModelIndex parent(const QModelIndex &child) const;

@@ -161,6 +161,13 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
 
         acm = cm->addAction(tr("Rename"));
         acm = cm->addAction(tr("Delete"));
+        if (idx.parent().isValid()) {
+            connect(acm,&QAction::triggered,[this,idx](){
+                treeModel->deleteKey(idx);
+            });
+        } else
+            acm->setEnabled(false);
+
 
         cm->addSeparator();
         acm = cm->addAction(tr("Copy key name"));

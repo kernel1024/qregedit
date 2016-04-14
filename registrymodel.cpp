@@ -192,6 +192,21 @@ bool CRegistryModel::createKey(const QModelIndex &parent, const QString &name)
     return res;
 }
 
+void CRegistryModel::deleteKey(const QModelIndex &idx)
+{
+    if (!idx.isValid() || !idx.parent().isValid()) return;
+
+    struct nk_key* k;
+    struct hive* h;
+    int hive;
+    if (!cgl->reg->keyPrepare(idx.parent().internalPointer(),h,hive,k))
+        return;
+
+    QString name = getKeyName(idx);
+
+    cgl->reg->deleteKey(h, k, name);
+}
+
 CValuesModel::CValuesModel()
 {
     cgl->reg->valuesModel = this;
