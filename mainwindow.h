@@ -37,7 +37,7 @@ public slots:
     void treeCtxMenu(const QPoint& pos) { treeCtxMenuPrivate(pos, false); }
     void valuesCtxMenu(const QPoint& pos);
     void valuesModify(const QModelIndex& key);
-    void createValue();
+    void createEntry();
 
 };
 

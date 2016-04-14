@@ -29,7 +29,7 @@
 
 #define KEY_ROOT   0x2c         /* Type ID of ROOT key node */
 #define KEY_NORMAL 0x20       /* Normal nk key */
-
+#define KEY_NORMAL_UCS 0x0     /* Normal nk key with non-latin name */
 #define ABSPATHLEN 4096
 
 

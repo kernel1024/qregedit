@@ -1,6 +1,7 @@
 #include <QFileDialog>
 #include <QDesktopWidget>
 #include <QIcon>
+#include <QInputDialog>
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QClipboard>
@@ -135,22 +136,24 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
     QMenu* ccm = cm->addMenu(tr("Create"));
     {
         acm = ccm->addAction(tr("Key"));
+        acm->setData(-1);
+        connect(acm,&QAction::triggered,this,&CMainWindow::createEntry);
         ccm->addSeparator();
         acm = ccm->addAction(tr("String value"));
         acm->setData(REG_SZ);
-        connect(acm,&QAction::triggered,this,&CMainWindow::createValue);
+        connect(acm,&QAction::triggered,this,&CMainWindow::createEntry);
         acm = ccm->addAction(tr("Binary value"));
         acm->setData(REG_BINARY);
-        connect(acm,&QAction::triggered,this,&CMainWindow::createValue);
+        connect(acm,&QAction::triggered,this,&CMainWindow::createEntry);
         acm = ccm->addAction(tr("DWORD value"));
         acm->setData(REG_DWORD);
-        connect(acm,&QAction::triggered,this,&CMainWindow::createValue);
+        connect(acm,&QAction::triggered,this,&CMainWindow::createEntry);
         acm = ccm->addAction(tr("Multistring value"));
         acm->setData(REG_MULTI_SZ);
-        connect(acm,&QAction::triggered,this,&CMainWindow::createValue);
+        connect(acm,&QAction::triggered,this,&CMainWindow::createEntry);
         acm = ccm->addAction(tr("Expandable string value"));
         acm->setData(REG_EXPAND_SZ);
-        connect(acm,&QAction::triggered,this,&CMainWindow::createValue);
+        connect(acm,&QAction::triggered,this,&CMainWindow::createEntry);
     }
 
     if (idx.isValid()) {
@@ -229,7 +232,7 @@ void CMainWindow::valuesModify(const QModelIndex &key)
     dlg->deleteLater();
 }
 
-void CMainWindow::createValue()
+void CMainWindow::createEntry()
 {
     QAction* ac = qobject_cast<QAction *>(sender());
     if (ac==NULL) return;
@@ -237,12 +240,22 @@ void CMainWindow::createValue()
     int type = ac->data().toInt(&ok);
     if (!ok) return;
 
-    CValueEditor* dlg = new CValueEditor(this,type,QModelIndex());
-    if (!dlg->initFailed()) {
-        if (dlg->exec()==QDialog::Accepted)
-            if (!valuesModel->createValue(dlg->getValue()))
-                QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to create new value."));
-    }
+    QModelIndex idx = ui->treeHives->currentIndex();
 
-    dlg->deleteLater();
+    if (type==-1 && idx.isValid()) {
+        QString name = QInputDialog::getText(this,tr("Registry Editor"),tr("New key name"));
+        if (!name.isEmpty())
+            if (!treeModel->createKey(idx,name))
+                QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to create new key."));
+
+    } else if (type>REG_NONE && type<REG_MAX) {
+        CValueEditor* dlg = new CValueEditor(this,type,QModelIndex());
+        if (!dlg->initFailed()) {
+            if (dlg->exec()==QDialog::Accepted)
+                if (!valuesModel->createValue(dlg->getValue()))
+                    QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to create new value."));
+        }
+
+        dlg->deleteLater();
+    }
 }

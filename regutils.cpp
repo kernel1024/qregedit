@@ -396,6 +396,12 @@ QString CRegController::getKeyFullPath(struct hive *hdesc, struct nk_key *key)
     return QString("\\\\"+keys.join("\\"));
 }
 
+bool CRegController::createKey(hive *hdesc, nk_key *parent, const QString &name)
+{
+    QString s = name;
+    return (add_key(hdesc, cgl->reg->getKeyOfs(hdesc, parent), s.toUtf8().data())!=NULL);
+}
+
 int CRegController::getHive(const struct nk_key *key) const
 {
     quintptr k = (quintptr)(key);

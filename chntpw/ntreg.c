@@ -2235,6 +2235,7 @@ struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type)
   newvlist = alloc_block(hdesc, nkofs, nk->no_values * 4 + 4);
   if (!newvlist) {
     printf("add_value: failed to allocate new value list!\n");
+    if (nlen==len && nlen>0) FREE(buf);
     return(NULL);
   }
 
@@ -2249,6 +2250,7 @@ struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type)
   if (!newvkofs) {
     printf("add_value: failed to allocate value descriptor\n");
     free_block(hdesc, newvlist);
+    if (nlen==len && nlen>0) FREE(buf);
     return(NULL);
   }
 
@@ -2282,6 +2284,7 @@ struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type)
   nk->ofs_vallist = newvlist - 0x1000;
   if (oldvlist) free_block(hdesc,oldvlist + 0x1000);
 
+  if (nlen==len && nlen>0) FREE(buf);
   return(newvkkey);
 
 }
@@ -2438,7 +2441,9 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
   int slot, newlfofs = 0, oldlfofs = 0, newliofs = 0;
   int oldliofs = 0;
   int o, n, i, onkofs, newnkofs, cmp;
-  int rimax, rislot, riofs, namlen;
+  int rimax, rislot, riofs, namlen, nlen;
+  int encoded;
+  char* buf;
   struct ri_key *ri = NULL;
   struct lf_key *newlf = NULL, *oldlf;
   struct li_key *newli = NULL, *oldli;
@@ -2452,7 +2457,20 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
     return(NULL);
   }
 
+  //namlen = strlen(name);
+  // optional encode name to ucs2
+  buf = name;
+  nlen = 0;
+  encoded = 0;
   namlen = strlen(name);
+  for (;*buf!='\0';buf++)
+      if (*buf & 0x80) break;
+  if (*buf!='\0') { // found some non-Latin1 character. Use UCS2
+      buf = string_prog2regw(name, namlen, &nlen);
+      namlen = nlen;
+      encoded = 1;
+  } else
+      buf = name;
 
   slot = -1;
   if (key->no_subkeys) {   /* It already has subkeys */
@@ -2516,12 +2534,25 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 	  onk = (struct nk_key *)(onkofs + hdesc->buffer + 0x1004);
 	  if (slot == -1) {
 #if 1
-	    printf("add_key: cmp <%s> with <%s>\n",name,onk->keyname);
+        printf("add_key: cmp <%s> with <%s>\n",buf,onk->keyname);
 #endif
 
-	    cmp = strn_casecmp(name, onk->keyname, (namlen > onk->len_name) ? namlen : onk->len_name);
+        if (encoded) {
+            if (onk->type & KEY_NORMAL)
+                // onk is less by default
+                cmp = 1;
+            else
+                cmp = memcmp(buf, onk->keyname, (namlen > onk->len_name) ? namlen : onk->len_name);
+        } else {
+            if (onk->type & KEY_NORMAL) // straight ANSI
+                cmp = strn_casecmp(buf, onk->keyname, (namlen > onk->len_name) ? namlen : onk->len_name);
+            else
+                // buf is less by default
+                cmp = -1;
+        }
 	    if (!cmp) {
-	      printf("add_key: key %s already exists!\n",name);
+          printf("add_key: key %s already exists!\n",buf);
+          if (encoded) FREE(buf);
 	      FREE(newli);
 	      return(NULL);
 	    }
@@ -2557,13 +2588,26 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 	  if (slot == -1) {
 
 #if 0
-	    printf("add_key: cmp <%s> with <%s>\n",name,onk->keyname);
+        printf("add_key: cmp <%s> with <%s>\n",buf,onk->keyname);
 #endif
-	    cmp = strn_casecmp(name, onk->keyname, (namlen > onk->len_name) ? namlen : onk->len_name);
+        if (encoded) {
+            if (onk->type & KEY_NORMAL)
+                // onk is less by default
+                cmp = 1;
+            else
+                cmp = memcmp(buf, onk->keyname, (namlen > onk->len_name) ? namlen : onk->len_name);
+        } else {
+            if (onk->type & KEY_NORMAL) // straight ANSI
+                cmp = strn_casecmp(buf, onk->keyname, (namlen > onk->len_name) ? namlen : onk->len_name);
+            else
+                // buf is less by default
+                cmp = -1;
+        }
 	    if (!cmp) {
-	      printf("add_key: key %s already exists!\n",name);
+          printf("add_key: key %s already exists!\n",buf);
 	      FREE(newlf);
-	      return(NULL);
+          if (encoded) FREE(buf);
+          return(NULL);
 	    }
 	    if ( cmp < 0 ) {
 	      slot = o;
@@ -2599,18 +2643,22 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 
 
   /* Make and fill in new nk */
-  newnkofs = alloc_block(hdesc, nkofs, sizeof(struct nk_key) + strlen(name));
+  newnkofs = alloc_block(hdesc, nkofs, sizeof(struct nk_key) + namlen);
   if (!newnkofs) {
-    printf("add_key: unable to allocate space for new key descriptor for %s!\n",name);
+    printf("add_key: unable to allocate space for new key descriptor for %s!\n",buf);
     FREE(newlf);
     FREE(newli);
+    if (encoded) FREE(buf);
     return(NULL);
   }
   key = (struct nk_key *)(hdesc->buffer + nkofs);  /* In case buffer moved */
   newnk = (struct nk_key *)(hdesc->buffer + newnkofs + 4);
   
   newnk->id            = 0x6b6e;
-  newnk->type          = KEY_NORMAL;    /* Some versions use 0x1020 a lot.. */
+  if (encoded)
+      newnk->type      = KEY_NORMAL_UCS;
+  else
+      newnk->type      = KEY_NORMAL;    /* Some versions use 0x1020 a lot.. */
   newnk->ofs_parent    = nkofs - 0x1004;
   newnk->no_subkeys    = 0;
   newnk->ofs_lf        = -1;
@@ -2618,9 +2666,9 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
   newnk->ofs_vallist   = -1;
   newnk->ofs_sk        = key->ofs_sk; /* Get parents for now. 0 or -1 here crashes XP */
   newnk->ofs_classnam  = -1;
-  newnk->len_name      = strlen(name);
+  newnk->len_name      = namlen;
   newnk->len_classnam  = 0;
-  memcpy(newnk->keyname, name, newnk->len_name);
+  memcpy(newnk->keyname, buf, newnk->len_name);
   
   if (newli) {  /* Handle li */
 
@@ -2635,9 +2683,10 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
     /* Allocate space for our new li list and copy it into reg */
     newliofs = alloc_block(hdesc, nkofs, 8 + 4*newli->no_keys);
     if (!newliofs) {
-      printf("add_key: unable to allocate space for new index table for %s!\n",name);
+      printf("add_key: unable to allocate space for new index table for %s!\n",buf);
       FREE(newli);
       free_block(hdesc,newnkofs);
+      if (encoded) FREE(buf);
       return(NULL);
     }
     key = (struct nk_key *)(hdesc->buffer + nkofs);  /* In case buffer moved */
@@ -2660,11 +2709,14 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
       newlf->hash[slot].name[1] = 0;
       newlf->hash[slot].name[2] = 0;
       newlf->hash[slot].name[3] = 0;
-      strncpy(newlf->hash[slot].name, name, 4);
+      if (!encoded)     // Leave zeroed for non-ANSI-named keys. W2k makes that.
+        strncpy(newlf->hash[slot].name, buf, 4);
     } else if (newlf->id == 0x686c) {  /* lh. XP uses this. hashes whole name */
-      for (i = 0,hash = 0; i < strlen(name); i++) {
-	hash *= 37;
-	hash += reg_touppertable[(unsigned char)name[i]];
+      if (encoded)                  // Don't know yet what to do with XP+, need tests....
+          abort();
+      for (i = 0,hash = 0; i < namlen; i++) {
+        hash *= 37;
+        hash += reg_touppertable[(unsigned char)buf[i]];
       }
       newlf->lh_hash[slot].hash = hash;
     }
@@ -2672,9 +2724,10 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
     /* Allocate space for our new lf list and copy it into reg */
     newlfofs = alloc_block(hdesc, nkofs, 8 + 8*newlf->no_keys);
     if (!newlfofs) {
-      printf("add_key: unable to allocate space for new index table for %s!\n",name);
+      printf("add_key: unable to allocate space for new index table for %s!\n",buf);
       FREE(newlf);
       free_block(hdesc,newnkofs);
+      if (encoded) FREE(buf);
       return(NULL);
     }
 
@@ -2700,6 +2753,7 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 
   FREE(newlf);
   FREE(newli);
+  if (encoded) FREE(buf);
   return(newnk);
 
 }

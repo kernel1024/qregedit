@@ -68,6 +68,7 @@ public:
     QString getKeyName(struct hive *hdesc, struct nk_key* key);
     QString getKeyTooltip(struct hive *hdesc, struct nk_key* key);
     QString getKeyFullPath(struct hive *hdesc, struct nk_key* key);
+    bool createKey(struct hive *hdesc, struct nk_key* parent, const QString& name);
 
     QVariant getValue(struct hive *hdesc, struct vex_data vex, int forceHex);
     QList<CValue> listValues(struct hive *hdesc, struct nk_key *key);

@@ -172,6 +172,26 @@ QString CRegistryModel::getKeyName(const QModelIndex &index) const
     return cgl->reg->getKeyFullPath(h, k);
 }
 
+bool CRegistryModel::createKey(const QModelIndex &parent, const QString &name)
+{
+    if (!parent.isValid())
+        return false;
+
+    struct nk_key* k;
+    struct hive* h;
+    int hive;
+    if (!cgl->reg->keyPrepare(parent.internalPointer(),h,hive,k))
+        return false;
+
+    QList<int> sl = cgl->reg->listKeysOfs(h, k);
+
+    beginInsertRows(parent,sl.count(),sl.count());
+    bool res = cgl->reg->createKey(h, k, name);
+    endInsertRows();
+
+    return res;
+}
+
 CValuesModel::CValuesModel()
 {
     cgl->reg->valuesModel = this;
