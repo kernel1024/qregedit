@@ -13,7 +13,7 @@ public:
 
     explicit CGlobal(QObject *parent = 0);
 
-    bool safeToClose();
+    bool safeToClose(int idx = -1);
 
     void loadSettings();
     void writeSettings();

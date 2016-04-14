@@ -11,8 +11,15 @@ CGlobal::CGlobal(QObject *parent) : QObject(parent)
     loadSettings();
 }
 
-bool CGlobal::safeToClose()
+bool CGlobal::safeToClose(int idx)
 {
+    if (idx>=0 && idx<reg->getHivesCount()) {
+        if (!reg->saveTopHive(idx))
+            return false;
+        reg->closeTopHive(idx);
+        return true;
+    }
+
     writeSettings();
 
     for (int i=0;i<reg->getHivesCount();i++)

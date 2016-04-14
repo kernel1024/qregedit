@@ -224,7 +224,8 @@ QString CRegController::getKeyName(struct hive* hdesc, struct nk_key* key)
     } else if (key->type & 0x20) {
         ret = QString::fromLocal8Bit(key->keyname,key->len_name);
     } else {
-        char *name = string_regw2prog(key->keyname, key->len_name);
+        int outlen;
+        char *name = string_regw2prog(key->keyname, key->len_name, &outlen);
         ret = QString(name);
         FREE(name);
     }
@@ -277,7 +278,6 @@ struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct keyval *kv
     struct db_key *db;
     void *addr;
 
-    //qDebug() << vex.name << vex.size << getValueTypeStr(vex.type);
     l = vex.size;
     if (l == -1) return(NULL);  /* error */
     if (kv && (kv->len < l)) return(NULL); /* Check for overflow of supplied buffer */
@@ -304,7 +304,6 @@ struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct keyval *kv
     }
 
     kr->len = l;
-    //qDebug() << kr->len;
 
     if (l > VAL_DIRECT_LIMIT) {       /* Where do the db indirects start? seems to be around 16k */
         db = (struct db_key *)keydataptr;
@@ -361,12 +360,12 @@ QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, int f
         case REG_SZ:
         case REG_EXPAND_SZ:
         case REG_MULTI_SZ:
-            string = string_regw2prog(data, len);
-            for (i = 0; i < (len>>1)-1; i++) {
+            int outlen;
+            string = string_regw2prog(data, len, &outlen);
+            for (i = 0; i < outlen; i++) {
                 if (string[i] == 0) string[i] = '\n';
                 if (type == REG_SZ) break;
             }
-
             res = QString(string);
             FREE(string);
             break;
@@ -460,16 +459,19 @@ bool CRegController::setValue(struct hive *hdesc, struct nk_key* key, const CVal
     struct keyval *newkv = NULL;
     int newsize = 0;
     QByteArray str;
+    QString s = value.vString;
 
     switch(value.type) {
         case REG_DWORD:
             newkv = getKeyValue(hdesc, key, NULL, value.name, value.type, TPF_VK);
             newkv->data = value.vDWORD;
             break;
+        case REG_MULTI_SZ:
+            if (value.type==REG_MULTI_SZ)
+                s.replace(QChar('\n'),QChar(0));
         case REG_SZ:
         case REG_EXPAND_SZ:
-        case REG_MULTI_SZ:
-            str = toUtf16(value.vString);
+            str = toUtf16(s);
             newsize = str.size();
             newkv=(struct keyval*)calloc(1,newsize+sizeof(int));
             newkv->len = newsize;

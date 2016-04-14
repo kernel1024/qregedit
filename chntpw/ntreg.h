@@ -440,7 +440,7 @@ void import_reg(struct hive *hdesc, char *filename, char *prefix);
 
 int de_escape(char *s, int wide);
 
-char *string_regw2prog(void *string, int len);
+char *string_regw2prog(void *string, int len, int *out_len);
 
 
 /* From edlib.c */

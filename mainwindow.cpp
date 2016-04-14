@@ -160,6 +160,8 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
         cm->addSeparator();
 
         acm = cm->addAction(tr("Rename"));
+        acm->setEnabled(false);
+
         acm = cm->addAction(tr("Delete"));
         if (idx.parent().isValid()) {
             connect(acm,&QAction::triggered,[this,idx](){
@@ -167,7 +169,6 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
             });
         } else
             acm->setEnabled(false);
-
 
         cm->addSeparator();
         acm = cm->addAction(tr("Copy key name"));
@@ -179,7 +180,7 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
     cm->addSeparator();
     acm = cm->addAction(tr("Close hive"));
     connect(acm,&QAction::triggered,[hive](){
-        cgl->reg->closeTopHive(hive);
+        cgl->safeToClose(hive);
     });
 
     if (fromValuesTable)

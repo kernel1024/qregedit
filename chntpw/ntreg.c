@@ -1391,7 +1391,8 @@ int ex_next_n(struct hive *hdesc, int nkofs, int *count, int *countri, struct ex
       sptr->name =  mem_str(newnkkey->keyname,newnkkey->len_name);
       //      sptr->name = string_rega2prog(newnkkey->keyname, newnkkey->len_name);
     } else {
-      sptr->name = string_regw2prog(newnkkey->keyname, newnkkey->len_name);
+      int outlen;
+      sptr->name = string_regw2prog(newnkkey->keyname, newnkkey->len_name, &outlen);
     }
   } /* if */
   (*count)++;
@@ -1449,7 +1450,8 @@ int ex_next_v(struct hive *hdesc, int nkofs, int *count, struct vex_data *sptr)
       sptr->name = mem_str(vkkey->keyname, vkkey->len_name);
       //      sptr->name = string_rega2prog(vkkey->keyname, vkkey->len_name);
     } else {
-      sptr->name = string_regw2prog(vkkey->keyname, vkkey->len_name);
+      int outlen;
+      sptr->name = string_regw2prog(vkkey->keyname, vkkey->len_name, &outlen);
     }
   } else {
     sptr->name = str_dup("");
@@ -1515,8 +1517,10 @@ int get_abs_path(struct hive *hdesc, int nkofs, char *path, int maxlen)
   if (key->type & 0x20)
     keyname = mem_str(key->keyname, key->len_name);
   //    keyname = string_rega2prog(key->keyname, key->len_name);
-  else
-    keyname = string_regw2prog(key->keyname, key->len_name);
+  else {
+    int outlen;
+    keyname = string_regw2prog(key->keyname, key->len_name, &outlen);
+  }
   len_name = strlen(keyname);
   if ( (strlen(path) + len_name) >= maxlen-6) {
     free(keyname);
@@ -2457,7 +2461,6 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
     return(NULL);
   }
 
-  //namlen = strlen(name);
   // optional encode name to ucs2
   buf = name;
   nlen = 0;
@@ -2481,6 +2484,7 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
     oldlf = (struct lf_key *)(hdesc->buffer + oldlfofs + 0x1004);
     if (oldlf->id != 0x666c && oldlf->id != 0x686c && oldlf->id != 0x696c && oldlf->id != 0x6972)  {
       printf("add_key: index type not supported: 0x%04x\n",oldlf->id);
+      if (encoded) FREE(buf);
       return(NULL);
     }
 
@@ -2552,9 +2556,9 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
         }
 	    if (!cmp) {
           printf("add_key: key %s already exists!\n",buf);
-          if (encoded) FREE(buf);
 	      FREE(newli);
-	      return(NULL);
+          if (encoded) FREE(buf);
+          return(NULL);
 	    }
 	    if ( cmp < 0) {
 	      slot = o;
@@ -2712,8 +2716,14 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
       if (!encoded)     // Leave zeroed for non-ANSI-named keys. W2k makes that.
         strncpy(newlf->hash[slot].name, buf, 4);
     } else if (newlf->id == 0x686c) {  /* lh. XP uses this. hashes whole name */
-      if (encoded)                  // Don't know yet what to do with XP+, need tests....
-          abort();
+      if (encoded) {     // Hmmm... strange. Win uses 0x666c with non-ANSI keys most time.
+          // Leave for now, this case needs some data collection...
+          printf("add_key: unable to calculate lh-hash with non-ANSI key name %s!\n",buf);
+          FREE(newlf);
+          free_block(hdesc,newnkofs);
+          if (encoded) FREE(buf);
+          return(NULL);
+      }
       for (i = 0,hash = 0; i < namlen; i++) {
         hash *= 37;
         hash += reg_touppertable[(unsigned char)buf[i]];
@@ -2772,20 +2782,19 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
 
   int slot = 0, newlfofs = 0, oldlfofs = 0, o, n, onkofs,  delnkofs;
   int oldliofs = 0, no_keys = 0, newriofs = 0;
-  int namlen;
+  int namlen, nlen, encoded;
   int rimax, riofs, rislot;
   struct ri_key *ri, *newri = NULL;
   struct lf_key *newlf = NULL, *oldlf = NULL;
   struct li_key *newli = NULL, *oldli = NULL;
   struct nk_key *key, *onk, *delnk;
   char fullpath[501];
+  char* buf;
 
   key = (struct nk_key *)(hdesc->buffer + nkofs);
 
-  namlen = strlen(name);
-
 #ifdef DKDEBUG
-  printf("del_key: deleting: <%s>\n",name);
+  printf("del_key: deleting: <%s>\n",buf);
 #endif
 
 
@@ -2808,6 +2817,20 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
     printf("del_key: index other than 'lf', 'li' or 'lh' not supported yet. 0x%04x\n",oldlf->id);
     return(1);
   }
+
+  // optional encode name to ucs2
+  buf = name;
+  nlen = 0;
+  encoded = 0;
+  namlen = strlen(name);
+  for (;*buf!='\0';buf++)
+      if (*buf & 0x80) break;
+  if (*buf!='\0') { // found some non-Latin1 character. Use UCS2
+      buf = string_prog2regw(name, namlen, &nlen);
+      namlen = nlen;
+      encoded = 1;
+  } else
+      buf = name;
 
   rimax = 0; ri = NULL; riofs = 0;
   rislot = 0;
@@ -2855,7 +2878,7 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
       for (o = 0, n = 0; o < oldli->no_keys; o++,n++) {
 	onkofs = oldli->hash[o].ofs_nk;
 	onk = (struct nk_key *)(onkofs + hdesc->buffer + 0x1004);
-	if (slot == -1 && onk->len_name == namlen && !strncmp(name, onk->keyname, (onk->len_name > namlen) ? onk->len_name : namlen)) {
+    if (slot == -1 && onk->len_name == namlen && !memcmp(buf, onk->keyname, onk->len_name)) {
 	  slot = o;
 	  delnkofs = onkofs; delnk = onk;
 	  rimax = rislot;
@@ -2884,7 +2907,7 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
 	onkofs = oldlf->hash[o].ofs_nk;
 	onk = (struct nk_key *)(onkofs + hdesc->buffer + 0x1004);
 
-	if (slot == -1 && (onk->len_name == namlen) && !strncmp(name, onk->keyname, onk->len_name)) {
+    if (slot == -1 && (onk->len_name == namlen) && !memcmp(buf, onk->keyname, onk->len_name)) {
 	  slot = o;
 	  delnkofs = onkofs; delnk = onk;
 	  rimax = rislot;
@@ -2908,9 +2931,10 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
   } while (rislot < rimax);  /* ri traverse loop */
 
   if (slot == -1) {
-    printf("del_key: subkey %s not found!\n",name);
+    printf("del_key: subkey %s not found!\n",buf);
     FREE(newlf);
     FREE(newli);
+    if (encoded) FREE(buf);
     return(1);
   }
 
@@ -2919,9 +2943,10 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
 #endif
 
   if (delnk->no_values || delnk->no_subkeys) {
-    printf("del_key: subkey %s has subkeys or values. Not deleted.\n",name);
+    printf("del_key: subkey %s has subkeys or values. Not deleted.\n",buf);
     FREE(newlf);
     FREE(newli);
+    if (encoded) FREE(buf);
     return(1);
   }
 
@@ -2939,8 +2964,9 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
     printf("del_key: alloc_block for index returns: %x\n",newlfofs);
 #endif
     if (!newlfofs) {
-      printf("del_key: WARNING: unable to allocate space for new key descriptor for %s! Not deleted\n",name);
+      printf("del_key: WARNING: unable to allocate space for new key descriptor for %s! Not deleted\n",buf);
       FREE(newlf);
+      if (encoded) FREE(buf);
       return(1);
     }
     key = (struct nk_key *)(hdesc->buffer + nkofs);
@@ -3005,10 +3031,11 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
 	}
 	newriofs = alloc_block(hdesc, nkofs, 8 + newri->no_lis*4 );
 	if (!newriofs) {
-	  printf("del_key: WARNING: unable to allocate space for ri-index for %s! Not deleted\n",name);
+      printf("del_key: WARNING: unable to allocate space for ri-index for %s! Not deleted\n",buf);
 	  FREE(newlf);
 	  FREE(newri);
-	  return(1);
+      if (encoded) FREE(buf);
+      return(1);
 	}
 	key = (struct nk_key *)(hdesc->buffer + nkofs);
 	oldli = (struct li_key *)(hdesc->buffer + oldliofs + 0x1004);
@@ -3031,6 +3058,7 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
   }
 
   FREE(newlf);
+  if (encoded) FREE(buf);
   return(0);
 
 }
@@ -3252,23 +3280,23 @@ int put_dword(struct hive *hdesc, int vofs, char *path, int exact, int dword)
  * return:  the converted string as char*
  */
 char *
-string_regw2prog(void *string, int len)
+string_regw2prog(void *string, int len, int *out_len)
 {
     int i, k;
     char *cstring;
 
-    int out_len = 0;
+    *out_len = 0;
     for(i = 0; i < len; i += 2)
     {
         unsigned v = ((unsigned char *)string)[i] + ((unsigned char *)string)[i+1] * 256u;
         if (v < 128)
-            out_len += 1;
+            *out_len += 1;
         else if(v < 0x800)
-            out_len += 2;
+            *out_len += 2;
         else
-            out_len += 3;
+            *out_len += 3;
     }
-    CREATE(cstring,char,out_len+1);
+    CREATE(cstring,char,*out_len+1);
 
     for(i = 0, k = 0; i < len; i += 2)
     {
@@ -3284,7 +3312,7 @@ string_regw2prog(void *string, int len)
             cstring[k++] = 0x80 | (v & 0x3f);
         }
     }
-    cstring[out_len] = '\0';
+    cstring[*out_len] = '\0';
 
     return cstring;
 }
@@ -3489,7 +3517,8 @@ void export_subkey(struct hive *hdesc, int nkofs, char *name, char *prefix, FILE
 	        value = (char *)get_val_data(hdesc, nkofs, name, vex.type, TPF_VK_EXACT|TPF_ABS);
 	        len = get_val_len(hdesc, nkofs, name, TPF_VK_EXACT|TPF_ABS);
 
-                val = string_regw2prog(value, len);
+                int outlen;
+                val = string_regw2prog(value, len, &outlen);
                 /* dump as binary if invalid characters are embedded */
                 if (strchr(val, 0xa) || strchr(val, 0xd))
                 {

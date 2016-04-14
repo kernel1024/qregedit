@@ -202,9 +202,15 @@ void CRegistryModel::deleteKey(const QModelIndex &idx)
     if (!cgl->reg->keyPrepare(idx.parent().internalPointer(),h,hive,k))
         return;
 
-    QString name = getKeyName(idx);
+    QString name = cgl->reg->getKeyName(h, (struct nk_key*)idx.internalPointer());
+    QStringList kl = cgl->reg->listKeys(h, k);
 
-    cgl->reg->deleteKey(h, k, name);
+    int kidx = kl.indexOf(name,Qt::CaseSensitive);
+    if (kidx>=0) {
+        beginRemoveRows(idx.parent(),kidx,kidx);
+        cgl->reg->deleteKey(h, k, name);
+        endRemoveRows();
+    }
 }
 
 CValuesModel::CValuesModel()
@@ -416,7 +422,10 @@ QVariant CValuesModel::data(const QModelIndex &index, int role) const
                 s.replace('\n',' ');
                 return s;
             }
-            QString s = QString::fromLatin1(vl.at(row).vOther.toHex()).toUpper();
+            // hex dump
+            if (v.vOther.isEmpty())
+                return tr("(zero-length binary value)");
+            QString s = QString::fromLatin1(v.vOther.toHex()).toUpper();
             int step = 2;
             for (int i = step; i <= s.size(); i+=step+1)
                 s.insert(i," ");
