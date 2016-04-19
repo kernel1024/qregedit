@@ -285,6 +285,7 @@ void CMainWindow::about()
                        tr("Windows registry editor, written with Qt.\n\n" \
                           "GPL v2\n\n\n" \
                           "Code parts:\n" \
-                          "chntpw ntreg library, (c) 1997-2014 Petter Nordahl-Hagen, LGPL v2.1\n\n" \
-                          "QHexEdit widget (c) Winfried Simon, LGPL v2.1"));
+                          "chntpw %1, LGPL v2.1\n\n" \
+                          "QHexEdit widget (c) Winfried Simon, LGPL v2.1")
+                       .arg(ntreg_version));
 }

@@ -59,6 +59,7 @@
 
 #define REG_MAX 12
 
+extern const char ntreg_version[];
 extern const char *val_types[REG_MAX+1];
 
 /* The first page of the registry file is some kind of header, lot of
