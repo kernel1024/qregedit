@@ -34,8 +34,15 @@ CMainWindow::CMainWindow(QWidget *parent) :
     ui->treeHives->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->tableValues->setContextMenuPolicy(Qt::CustomContextMenu);
 
+    ui->actionOpenHiveRO->setData(1);
     connect(ui->actionExit,&QAction::triggered,this,&CMainWindow::close);
     connect(ui->actionOpenHive,&QAction::triggered,this,&CMainWindow::openHive);
+    connect(ui->actionOpenHiveRO,&QAction::triggered,this,&CMainWindow::openHive);
+    connect(ui->actionAbout,&QAction::triggered,this,&CMainWindow::about);
+    connect(ui->actionAboutQt,&QAction::triggered,qApp,&QApplication::aboutQt);
+    connect(ui->actionSettings,&QAction::triggered,[this](){
+       cgl->settingsDialog(this);
+    });
 
     connect(ui->treeHives,&QTreeView::clicked,this,&CMainWindow::showValues);
     connect(ui->treeHives,&QTreeView::activated,this,&CMainWindow::showValues);
@@ -53,7 +60,7 @@ CMainWindow::CMainWindow(QWidget *parent) :
 
     QStringList args = QApplication::arguments();
     for (int i=1;i<args.count();i++)
-        cgl->reg->openTopHive(args.at(i));
+        cgl->reg->openTopHive(args.at(i), HMODE_RW);
 }
 
 CMainWindow::~CMainWindow()
@@ -96,9 +103,16 @@ void CMainWindow::closeEvent(QCloseEvent *event)
 
 void CMainWindow::openHive()
 {
+    QAction *ac = qobject_cast<QAction *>(sender());
+    bool b;
+    int t = ac->data().toInt(&b);
+    int mode = HMODE_RW;
+    if (b && (t==1))
+        mode = HMODE_RO;
+
     QString fname = QFileDialog::getOpenFileName(this,tr("Registry files"));
     if (!fname.isEmpty())
-        if (!cgl->reg->openTopHive(fname))
+        if (!cgl->reg->openTopHive(fname, mode))
             QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to open hive file.\n"
                                                                 "See standard output for debug messages."));
 }
@@ -266,4 +280,14 @@ void CMainWindow::createEntry()
 
         dlg->deleteLater();
     }
+}
+
+void CMainWindow::about()
+{
+    QMessageBox::about(this,tr("About"),
+                       tr("Windows registry editor, written with Qt.\n\n" \
+                          "GPL v2\n\n\n" \
+                          "Code parts:\n" \
+                          "chntpw ntreg library, (c) 1997-2014 Petter Nordahl-Hagen, LGPL v2.1\n\n" \
+                          "QHexEdit widget (c) Winfried Simon, LGPL v2.1"));
 }

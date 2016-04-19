@@ -51,7 +51,7 @@ public:
 
     QByteArray toUtf16(const QString &str);
 
-    bool openTopHive(const QString &filename);
+    bool openTopHive(const QString &filename, int mode);
     bool saveTopHive(int idx);
     void closeTopHive(int idx);
 

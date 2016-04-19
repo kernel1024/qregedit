@@ -1,5 +1,7 @@
 #include <QSettings>
 #include "global.h"
+#include "settingsdlg.h"
+#include "ui_settingsdlg.h"
 
 CGlobal* cgl = NULL;
 
@@ -47,4 +49,24 @@ void CGlobal::writeSettings()
     settings.remove("");
     settings.setValue("hiveOpenMode",hiveOpenMode);
     settings.endGroup();
+}
+
+void CGlobal::settingsDialog(QWidget *parent)
+{
+    CSettingsDlg* dlg = new CSettingsDlg(parent);
+    dlg->ui->checkNoAlloc->setChecked(hiveOpenMode & HMODE_NOALLOC);
+    dlg->ui->checkNoExpand->setChecked(hiveOpenMode & HMODE_NOEXPAND);
+
+    if (dlg->exec()==QDialog::Accepted) {
+        if (dlg->ui->checkNoExpand->isChecked())
+            hiveOpenMode |= HMODE_NOEXPAND;
+        else
+            hiveOpenMode &= ~HMODE_NOEXPAND;
+
+        if (dlg->ui->checkNoAlloc->isChecked())
+            hiveOpenMode |= HMODE_NOALLOC;
+        else
+            hiveOpenMode &= ~HMODE_NOALLOC;
+    }
+    dlg->deleteLater();
 }

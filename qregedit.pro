@@ -11,17 +11,20 @@ SOURCES += main.cpp\
     registrymodel.cpp \
     global.cpp \
     regutils.cpp \
-    valueeditor.cpp
+    valueeditor.cpp \
+    settingsdlg.cpp
 
 HEADERS  += mainwindow.h \
     chntpw/ntreg.h \
     registrymodel.h \
     global.h \
     regutils.h \
-    valueeditor.h
+    valueeditor.h \
+    settingsdlg.h
 
 FORMS    += mainwindow.ui \
-    valueeditor.ui
+    valueeditor.ui \
+    settingsdlg.ui
 
 OTHER_FILES += \
     LICENSE \

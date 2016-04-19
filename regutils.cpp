@@ -21,9 +21,9 @@ QByteArray CRegController::toUtf16(const QString &str)
     return ba;
 }
 
-bool CRegController::openTopHive(const QString &filename)
+bool CRegController::openTopHive(const QString &filename, int mode)
 {
-    struct hive* h = openHive(filename.toUtf8().data(), cgl->hiveOpenMode | HMODE_RW);
+    struct hive* h = openHive(filename.toUtf8().data(), cgl->hiveOpenMode | mode);
     if (h==NULL) {
         qCritical() << "Failed to open hive" << filename;
         return false;

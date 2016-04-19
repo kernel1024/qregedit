@@ -38,6 +38,7 @@ public slots:
     void valuesCtxMenu(const QPoint& pos);
     void valuesModify(const QModelIndex& key);
     void createEntry();
+    void about();
 
 };
 

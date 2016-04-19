@@ -18,6 +18,8 @@ public:
     void loadSettings();
     void writeSettings();
 
+    void settingsDialog(QWidget *parent = NULL);
+
 signals:
 
 public slots:
