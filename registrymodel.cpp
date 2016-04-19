@@ -269,8 +269,21 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
 
 bool CValuesModel::renameValue(const QModelIndex &idx, const QString &name)
 {
-    // TODO: rename (delete and recreate value? Need to think...)
-    return false;
+    if (!idx.isValid() || hive_num<0 || key_ofs<0)
+        return false;
+
+    CValue v = getValue(idx);
+    if (v.isDefault())
+        return false;
+
+    if (!deleteValue(idx))
+        return false;
+
+    v.name = name;
+    if (!createValue(v))
+        return false;
+
+    return true;
 }
 
 bool CValuesModel::deleteValue(const QModelIndex &idx)

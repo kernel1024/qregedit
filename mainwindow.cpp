@@ -173,9 +173,6 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
     if (idx.isValid()) {
         cm->addSeparator();
 
-        acm = cm->addAction(tr("Rename"));
-        acm->setEnabled(false);
-
         acm = cm->addAction(tr("Delete"));
         if (idx.parent().isValid()) {
             connect(acm,&QAction::triggered,[this,idx](){
@@ -230,13 +227,13 @@ void CMainWindow::valuesCtxMenu(const QPoint &pos)
         });
 
         acm = cm.addAction(tr("Rename"));
-        acm->setEnabled(false); // temporary
         connect(acm,&QAction::triggered,[this,name,idx](){
+            QString s = name;
             bool ok;
-            QString name = QInputDialog::getText(this,tr("Registry Editor"),
-                                                     tr("Rename registry value"),QLineEdit::Normal,name,&ok);
-            if (ok && !name.isEmpty())
-                valuesModel->renameValue(idx,name);
+            s = QInputDialog::getText(this,tr("Registry Editor"),
+                                                     tr("Rename registry value"),QLineEdit::Normal,s,&ok);
+            if (ok && !s.isEmpty())
+                valuesModel->renameValue(idx,s);
         });
 
         cm.exec(ui->tableValues->mapToGlobal(pos));
