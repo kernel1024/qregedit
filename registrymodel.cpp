@@ -205,8 +205,8 @@ void CRegistryModel::deleteKey(const QModelIndex &idx)
     QString name = cgl->reg->getKeyName(h, (struct nk_key*)idx.internalPointer());
     QStringList kl = cgl->reg->listKeys(h, k);
 
-    int kidx = kl.indexOf(name,Qt::CaseSensitive);
-    if (kidx>=0) {
+    int kidx = kl.indexOf(name);
+    if (kl.contains(name)) {
         beginRemoveRows(idx.parent(),kidx,kidx);
         cgl->reg->deleteKey(h, k, name);
         endRemoveRows();
