@@ -5,6 +5,9 @@
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QClipboard>
+#include <QProgressDialog>
+#include <QProgressBar>
+#include <QShortcut>
 
 #include "global.h"
 #include "regutils.h"
@@ -54,7 +57,13 @@ CMainWindow::CMainWindow(QWidget *parent) :
     connect(ui->tableValues,&QTableView::activated,
             this,&CMainWindow::valuesModify);
 
+    connect(treeModel,&CRegistryModel::keyFound,this,&CMainWindow::keyFound);
     connect(cgl->reg,&CRegController::hiveAboutToClose,this,&CMainWindow::hivePrepareClose);
+
+    QShortcut* sc = new QShortcut(QKeySequence(QKeySequence::Delete),ui->tableValues);
+    connect(sc,&QShortcut::activated,[this](){
+        deleteValue(ui->tableValues->currentIndex());
+    });
 
     centerWindow();
 
@@ -91,6 +100,23 @@ void CMainWindow::centerWindow()
     QList<int> sz;
     sz << nw.width()/4 << 3*nw.width()/4;
     ui->splitter->setSizes(sz);
+}
+
+void CMainWindow::searchText(const QModelIndex &idx, const QString &text)
+{
+    if (!idx.isValid() || text.isEmpty()) return;
+
+    QProgressDialog *dlg = new QProgressDialog(tr("Searching registry..."),tr("Cancel"),
+                                               0,10,this);
+    QProgressBar *bar = new QProgressBar();
+    dlg->setBar(bar);
+    dlg->setWindowTitle(tr("Registry Editor"));
+    dlg->setWindowModality(Qt::WindowModal);
+    dlg->show();
+    bar->setMinimum(0); bar->setMaximum(0);
+    if (!treeModel->searchText(dlg,idx,text))
+        QMessageBox::information(this,tr("Registry Editor"),tr("Search completed. Nothing found."));
+    dlg->deleteLater();
 }
 
 void CMainWindow::closeEvent(QCloseEvent *event)
@@ -186,6 +212,16 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
         connect(acm,&QAction::triggered,[this,idx](){
             QApplication::clipboard()->setText(treeModel->getKeyName(idx));
         });
+
+        cm->addSeparator();
+        acm = cm->addAction(tr("Search"));
+        connect(acm,&QAction::triggered,[this,idx](){
+            bool ok;
+            QString s = QInputDialog::getText(this,tr("Registry Editor"),
+                                                     tr("Search text"),QLineEdit::Normal,QString(),&ok);
+            if (ok && !s.isEmpty())
+                searchText(idx,s);
+        });
     }
 
     cm->addSeparator();
@@ -220,10 +256,8 @@ void CMainWindow::valuesCtxMenu(const QPoint &pos)
 
         acm = cm.addAction(tr("Delete"));
         acm->setDisabled(valuesModel->getValue(idx).isDefault());
-        connect(acm,&QAction::triggered,[this,idx,name](){
-            if (!valuesModel->deleteValue(idx))
-                QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to delete value '%1'.")
-                                      .arg(name));
+        connect(acm,&QAction::triggered,[this,idx](){
+            deleteValue(idx);
         });
 
         acm = cm.addAction(tr("Rename"));
@@ -282,10 +316,32 @@ void CMainWindow::createEntry()
 void CMainWindow::about()
 {
     QMessageBox::about(this,tr("About"),
-                       tr("Windows registry editor, written with Qt.\n\n" \
-                          "GPL v2\n\n\n" \
+                       tr("Windows registry editor, written with Qt.\n" \
+                          "(c) kernel1024, 2016, GPL v2\n\n" \
                           "Code parts:\n" \
-                          "chntpw %1, LGPL v2.1\n\n" \
+                          "chntpw %1, LGPL v2.1\n" \
                           "QHexEdit widget (c) Winfried Simon, LGPL v2.1")
                        .arg(ntreg_version));
+}
+
+void CMainWindow::keyFound(const QModelIndex &key, const QString &value)
+{
+    ui->treeHives->setCurrentIndex(key);
+    showValues(key);
+
+    if (!value.isEmpty()) {
+        QModelIndex idx = valuesSortModel->mapFromSource(valuesModel->getValueIdx(value));
+        if (idx.isValid())
+            ui->tableValues->setCurrentIndex(idx);
+    }
+}
+
+void CMainWindow::deleteValue(const QModelIndex &value)
+{
+    if (!value.isValid()) return;
+    QString name = valuesModel->getValueName(value);
+
+    if (!valuesModel->deleteValue(value))
+        QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to delete value '%1'.")
+                              .arg(name));
 }

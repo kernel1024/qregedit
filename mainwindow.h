@@ -20,6 +20,7 @@ public:
     ~CMainWindow();
 
     void centerWindow();
+    void searchText(const QModelIndex& idx, const QString& text);
 private:
     Ui::MainWindow *ui;
     CRegistryModel *treeModel;
@@ -39,6 +40,8 @@ public slots:
     void valuesModify(const QModelIndex& key);
     void createEntry();
     void about();
+    void keyFound(const QModelIndex& key, const QString& value);
+    void deleteValue(const QModelIndex& value);
 
 };
 

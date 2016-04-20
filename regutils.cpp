@@ -55,7 +55,7 @@ bool CRegController::saveTopHive(int idx)
     else {
         int ret = QMessageBox::warning(0,tr("Registry Editor"),
                                        tr("Hive file '%1' has been modified. "
-                                          "Do you want to save hive").arg(h->filename),
+                                          "Do you want to save hive?").arg(h->filename),
                                        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
                                        QMessageBox::Save);
         if (ret==QMessageBox::Discard)
@@ -220,7 +220,7 @@ QString CRegController::getKeyName(struct hive* hdesc, struct nk_key* key)
         return ret;
 
     if (key->len_name <= 0) {
-        qDebug() << tr("ex_next: nk at 0x%1 has no name!").arg((quintptr)key,8,16);
+        qWarning() << tr("CRegController::getKeyName: nk at 0x%1 has no name!").arg((quintptr)key,8,16);
     } else if (key->type & 0x20) {
         ret = QString::fromLocal8Bit(key->keyname,key->len_name);
     } else {
@@ -307,7 +307,10 @@ struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct keyval *kv
 
     if (l > VAL_DIRECT_LIMIT) {       /* Where do the db indirects start? seems to be around 16k */
         db = (struct db_key *)keydataptr;
-        if (db->id != 0x6264) abort();
+        if (db->id != 0x6264) {
+            qCritical() << "CRegController::getKeyValue: invalid db_key structure found for value " << vex.name;
+            return NULL;
+        }
         parts = db->no_part;
         list = db->ofs_data + 0x1004;
 

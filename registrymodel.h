@@ -5,6 +5,7 @@
 #include <QTableView>
 #include <QVector>
 #include <QString>
+#include <QProgressDialog>
 
 class CValue;
 
@@ -24,6 +25,7 @@ public:
     QString getKeyName(const QModelIndex &index) const;
     bool createKey(const QModelIndex &parent, const QString& name);
     void deleteKey(const QModelIndex &idx);
+    bool searchText(QProgressDialog *dlg, const QModelIndex& idx, const QString& text);
 protected:
     QModelIndex index(int row, int column, const QModelIndex &parent) const;
     QModelIndex parent(const QModelIndex &child) const;
@@ -31,6 +33,9 @@ protected:
     int columnCount(const QModelIndex &parent) const;
     QVariant data(const QModelIndex &index, int role) const;
     Qt::ItemFlags flags(const QModelIndex &index) const;
+
+signals:
+    void keyFound(const QModelIndex &index, const QString &value);
 
 };
 
@@ -52,8 +57,8 @@ public:
     bool deleteValue(const QModelIndex &idx);
 
     QString getValueName(const QModelIndex& idx);
-
     CValue getValue(const QModelIndex& idx);
+    QModelIndex getValueIdx(const QString& name) const;
 
     bool setValue(const QModelIndex& idx, const CValue& value);
 

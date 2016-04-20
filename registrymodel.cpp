@@ -1,5 +1,7 @@
 #include <QIcon>
 #include <QMessageBox>
+#include <QApplication>
+#include <QThread>
 #include "registrymodel.h"
 #include "global.h"
 #include <QDebug>
@@ -213,6 +215,45 @@ void CRegistryModel::deleteKey(const QModelIndex &idx)
     }
 }
 
+bool CRegistryModel::searchText(QProgressDialog *dlg, const QModelIndex &idx, const QString &text)
+{
+    if (!idx.isValid()) return false;
+    if (dlg==NULL || text.isEmpty() || dlg->wasCanceled()) return true; // finish search
+
+    QApplication::processEvents();
+    bool iok;
+    int snum = text.toInt(&iok);
+
+    struct nk_key* k;
+    struct hive* h;
+    int hive;
+    if (!cgl->reg->keyPrepare(idx.internalPointer(),h,hive,k)) return true;
+
+    if (cgl->reg->getKeyName(h, k).contains(text,Qt::CaseInsensitive)) {
+        emit keyFound(idx,QString());
+        return true;
+    }
+
+    QList<CValue> vl = cgl->reg->listValues(h, k);
+    foreach (const CValue v, vl)
+        if (v.name.contains(text,Qt::CaseInsensitive) ||
+                v.vString.contains(text,Qt::CaseInsensitive) ||
+                v.vOther.contains(text.toUtf8()) ||
+                ((v.type==REG_DWORD)&&iok&&(v.vDWORD==snum)))
+        {
+            emit keyFound(idx,v.name);
+            return true;
+        }
+
+    for (int i=0;i<k->no_subkeys;i++) {
+        if (searchText(dlg,idx.child(i,0),text))
+            return true;
+        if (dlg->wasCanceled())
+            return false;
+    }
+    return false;
+}
+
 CValuesModel::CValuesModel()
 {
     cgl->reg->valuesModel = this;
@@ -339,6 +380,22 @@ CValue CValuesModel::getValue(const QModelIndex &idx)
     if  (row<0 || row>=vl.count()) return CValue();
 
     return vl.at(row);
+}
+
+QModelIndex CValuesModel::getValueIdx(const QString &name) const
+{
+    if (name.isEmpty() || hive_num<0 || key_ofs<0)
+        return QModelIndex();
+
+    struct hive* h = cgl->reg->getHivePtr(hive_num);
+    struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
+
+    QList<CValue> vl = cgl->reg->listValues(h, k);
+    for (int i=0;i<vl.count();i++)
+        if (vl.at(i).name==name)
+            return index(i,0,QModelIndex());
+
+    return QModelIndex();
 }
 
 bool CValuesModel::setValue(const QModelIndex &idx, const CValue &value)
