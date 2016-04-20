@@ -83,6 +83,7 @@
 #include <stdarg.h>
 
 #include "ntreg.h"
+#include "../functions.h"
 
 /* Set to abort() and debug on more critical errors */
 #define DOCORE 1
@@ -2432,8 +2433,6 @@ int del_value(struct hive *hdesc, int nkofs, char *name, int exact)
 }
 
 
-
-
 /* Add a subkey to a key
  * hdesc - usual..
  * nkofs - offset of current nk
@@ -2452,7 +2451,6 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
   int rimax, rislot, riofs, namlen, nlen;
   int encoded;
   char *buf;
-  int hbuflen;
   struct ri_key *ri = NULL;
   struct lf_key *newlf = NULL, *oldlf;
   struct li_key *newli = NULL, *oldli;
@@ -2471,11 +2469,9 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
   nlen = 0;
   encoded = 0;
   namlen = strlen(name);
-  hbuflen = namlen;
   for (;*buf!='\0';buf++)
       if (*buf & 0x80) break;
   if (*buf!='\0') { // found some non-Latin1 character. Use UCS2
-      hbuflen = buf-name;
       buf = string_prog2regw(name, namlen, &nlen);
       namlen = nlen;
       encoded = 1;
@@ -2547,27 +2543,7 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 #if 1
         fprintf(stderr,"add_key: cmp <%s> with <%s>\n",buf,onk->keyname);
 #endif
-
-        if (encoded) {
-            if (hbuflen==0) { // full non-latin new key name
-                if (onk->type & KEY_NORMAL)
-                    // onk is less by default
-                    cmp = 1;
-                else
-                    cmp = memcmp(buf, onk->keyname, (namlen > onk->len_name) ? namlen : onk->len_name);
-            } else { // partial...
-                if (onk->type & KEY_NORMAL)
-                    cmp = strn_casecmp(name, onk->keyname, (hbuflen > onk->len_name) ? hbuflen : onk->len_name);
-                else
-                    cmp = -1;
-            }
-        } else {
-            if (onk->type & KEY_NORMAL) // straight ANSI
-                cmp = strn_casecmp(buf, onk->keyname, (namlen > onk->len_name) ? namlen : onk->len_name);
-            else
-                // buf is less by default
-                cmp = -1;
-        }
+        cmp = qf_strncasecmp(name, onk);
 	    if (!cmp) {
           fprintf(stderr,"add_key: key %s already exists!\n",buf);
 	      FREE(newli);
@@ -2608,27 +2584,7 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 #if 0
         fprintf(stderr,"add_key: cmp <%s> with <%s>\n",buf,onk->keyname);
 #endif
-        // TODO: comparison needs to be more complicated!
-        if (encoded) {
-            if (hbuflen==0) { // full non-latin new key name
-                if (onk->type & KEY_NORMAL)
-                    // onk is less by default
-                    cmp = 1;
-                else
-                    cmp = memcmp(buf, onk->keyname, (namlen > onk->len_name) ? namlen : onk->len_name);
-            } else { // partial...
-                if (onk->type & KEY_NORMAL)
-                    cmp = strn_casecmp(name, onk->keyname, (hbuflen > onk->len_name) ? hbuflen : onk->len_name);
-                else
-                    cmp = -1;
-            }
-        } else {
-            if (onk->type & KEY_NORMAL) // straight ANSI
-                cmp = strn_casecmp(buf, onk->keyname, (namlen > onk->len_name) ? namlen : onk->len_name);
-            else
-                // buf is less by default
-                cmp = -1;
-        }
+        cmp = qf_strncasecmp(name,onk);
 	    if (!cmp) {
           fprintf(stderr,"add_key: key %s already exists!\n",buf);
 	      FREE(newlf);
@@ -2737,8 +2693,6 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
       newlf->hash[slot].name[3] = 0;
       if (!encoded)     // Leave zeroed for non-ANSI-named keys. W2k makes that.
         strncpy(newlf->hash[slot].name, buf, 4);
-      else if (encoded && (hbuflen>0))
-          strncpy(newlf->hash[slot].name, name, (hbuflen>4) ? 4 : hbuflen);
     } else if (newlf->id == 0x686c) {  /* lh. XP uses this. hashes whole name */
       if (encoded) {     // Hmmm... strange. Win uses 0x666c with non-ANSI keys most time.
           // Leave for now, this case needs some data collection...

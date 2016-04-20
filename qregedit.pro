@@ -12,7 +12,8 @@ SOURCES += main.cpp\
     global.cpp \
     regutils.cpp \
     valueeditor.cpp \
-    settingsdlg.cpp
+    settingsdlg.cpp \
+    functions.cpp
 
 HEADERS  += mainwindow.h \
     chntpw/ntreg.h \
@@ -20,7 +21,8 @@ HEADERS  += mainwindow.h \
     global.h \
     regutils.h \
     valueeditor.h \
-    settingsdlg.h
+    settingsdlg.h \
+    functions.h
 
 FORMS    += mainwindow.ui \
     valueeditor.ui \
