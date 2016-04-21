@@ -92,6 +92,9 @@
     <property name="title">
      <string>&amp;Tools</string>
     </property>
+    <addaction name="actionFind"/>
+    <addaction name="actionFindAgain"/>
+    <addaction name="separator"/>
     <addaction name="actionSettings"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
@@ -133,7 +136,23 @@
   </action>
   <action name="actionSettings">
    <property name="text">
-    <string>Settings...</string>
+    <string>&amp;Settings...</string>
+   </property>
+  </action>
+  <action name="actionFind">
+   <property name="text">
+    <string>Find...</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+F</string>
+   </property>
+  </action>
+  <action name="actionFindAgain">
+   <property name="text">
+    <string>Find again</string>
+   </property>
+   <property name="shortcut">
+    <string>F3</string>
    </property>
   </action>
  </widget>

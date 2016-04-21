@@ -193,6 +193,14 @@ QList<int> CRegController::listKeysOfs(struct hive *hdesc, struct nk_key *key)
     return keys;
 }
 
+QList<int> CRegController::listAllKeysOfsFlat(struct hive *hdesc, struct nk_key *key)
+{
+    QList<int> childs = listKeysOfs(hdesc, key);
+    for (int i=0;i<childs.count();i++)
+        childs.append(listAllKeysOfsFlat(hdesc,getKeyPtr(hdesc,childs.at(i))));
+    return childs;
+}
+
 struct nk_key * CRegController::getKeyPtr(struct hive* hdesc, int nkofs)
 {
     return (struct nk_key *)(hdesc->buffer + nkofs);

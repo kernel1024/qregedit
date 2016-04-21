@@ -13,7 +13,8 @@ SOURCES += main.cpp\
     regutils.cpp \
     valueeditor.cpp \
     settingsdlg.cpp \
-    functions.cpp
+    functions.cpp \
+    progressdialog.cpp
 
 HEADERS  += mainwindow.h \
     chntpw/ntreg.h \
@@ -22,11 +23,13 @@ HEADERS  += mainwindow.h \
     regutils.h \
     valueeditor.h \
     settingsdlg.h \
-    functions.h
+    functions.h \
+    progressdialog.h
 
 FORMS    += mainwindow.ui \
     valueeditor.ui \
-    settingsdlg.ui
+    settingsdlg.ui \
+    progressdialog.ui
 
 OTHER_FILES += \
     LICENSE \

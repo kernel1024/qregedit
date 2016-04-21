@@ -5,8 +5,6 @@
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QClipboard>
-#include <QProgressDialog>
-#include <QProgressBar>
 #include <QShortcut>
 
 #include "global.h"
@@ -46,6 +44,10 @@ CMainWindow::CMainWindow(QWidget *parent) :
     connect(ui->actionSettings,&QAction::triggered,[this](){
        cgl->settingsDialog(this);
     });
+    connect(ui->actionFind,&QAction::triggered,this,&CMainWindow::searchTxt);
+    connect(ui->actionFindAgain,&QAction::triggered,[this](){
+        treeModel->continueSearch(searchProgressDialog);
+    });
 
     connect(ui->treeHives,&QTreeView::clicked,this,&CMainWindow::showValues);
     connect(ui->treeHives,&QTreeView::activated,this,&CMainWindow::showValues);
@@ -58,6 +60,9 @@ CMainWindow::CMainWindow(QWidget *parent) :
             this,&CMainWindow::valuesModify);
 
     connect(treeModel,&CRegistryModel::keyFound,this,&CMainWindow::keyFound);
+    connect(treeModel,&CRegistryModel::searchFinished,[this](){
+        QMessageBox::information(this,tr("Registry Editor"),tr("Search completed."));
+    });
     connect(cgl->reg,&CRegController::hiveAboutToClose,this,&CMainWindow::hivePrepareClose);
 
     QShortcut* sc = new QShortcut(QKeySequence(QKeySequence::Delete),ui->tableValues);
@@ -66,6 +71,8 @@ CMainWindow::CMainWindow(QWidget *parent) :
     });
 
     centerWindow();
+
+    searchProgressDialog = createProgressDialog();
 
     QStringList args = QApplication::arguments();
     for (int i=1;i<args.count();i++)
@@ -106,17 +113,7 @@ void CMainWindow::searchText(const QModelIndex &idx, const QString &text)
 {
     if (!idx.isValid() || text.isEmpty()) return;
 
-    QProgressDialog *dlg = new QProgressDialog(tr("Searching registry..."),tr("Cancel"),
-                                               0,10,this);
-    QProgressBar *bar = new QProgressBar();
-    dlg->setBar(bar);
-    dlg->setWindowTitle(tr("Registry Editor"));
-    dlg->setWindowModality(Qt::WindowModal);
-    dlg->show();
-    bar->setMinimum(0); bar->setMaximum(0);
-    if (!treeModel->searchText(dlg,idx,text))
-        QMessageBox::information(this,tr("Registry Editor"),tr("Search completed. Nothing found."));
-    dlg->deleteLater();
+    treeModel->searchText(searchProgressDialog,idx,text);
 }
 
 void CMainWindow::closeEvent(QCloseEvent *event)
@@ -237,6 +234,14 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
     cm->deleteLater();
 }
 
+CProgressDialog *CMainWindow::createProgressDialog()
+{
+    CProgressDialog *dlg = new CProgressDialog(this);
+    dlg->setWindowTitle(tr("Registry Editor"));
+    dlg->setWindowModality(Qt::WindowModal);
+    return dlg;
+}
+
 void CMainWindow::valuesCtxMenu(const QPoint &pos)
 {
     QModelIndex uidx = ui->tableValues->indexAt(pos);
@@ -334,6 +339,18 @@ void CMainWindow::keyFound(const QModelIndex &key, const QString &value)
         if (idx.isValid())
             ui->tableValues->setCurrentIndex(idx);
     }
+}
+
+void CMainWindow::searchTxt()
+{
+    QModelIndex idx = ui->treeHives->currentIndex();
+    if (!idx.isValid()) return;
+
+    bool ok;
+    QString s = QInputDialog::getText(this,tr("Registry Editor"),
+                                             tr("Search text"),QLineEdit::Normal,QString(),&ok);
+    if (ok && !s.isEmpty())
+        searchText(idx,s);
 }
 
 void CMainWindow::deleteValue(const QModelIndex &value)

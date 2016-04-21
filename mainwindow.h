@@ -6,6 +6,7 @@
 #include <QCloseEvent>
 #include <QSortFilterProxyModel>
 #include "registrymodel.h"
+#include "progressdialog.h"
 
 namespace Ui {
 class MainWindow;
@@ -26,7 +27,9 @@ private:
     CRegistryModel *treeModel;
     CValuesModel *valuesModel;
     QSortFilterProxyModel *valuesSortModel;
+    CProgressDialog *searchProgressDialog;
     void treeCtxMenuPrivate(const QPoint& pos, const bool fromValuesTable);
+    CProgressDialog *createProgressDialog();
 
 protected:
     void closeEvent(QCloseEvent *event);
@@ -41,6 +44,7 @@ public slots:
     void createEntry();
     void about();
     void keyFound(const QModelIndex& key, const QString& value);
+    void searchTxt();
     void deleteValue(const QModelIndex& value);
 
 };

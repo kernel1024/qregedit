@@ -1,14 +1,31 @@
 #include <QIcon>
 #include <QMessageBox>
 #include <QApplication>
-#include <QThread>
+#include <QStack>
+#include "progressdialog.h"
 #include "registrymodel.h"
 #include "global.h"
 #include <QDebug>
 
+void CRegistryModel::hiveChanged(const QModelIndex &idx)
+{
+    if (idx.isValid()) {
+        struct nk_key* ck;
+        struct hive* h;
+        int hive;
+        if (cgl->reg->keyPrepare(idx.internalPointer(),h,hive,ck))
+            if (searchHive!=hive) return;
+    }
+    searchHive = -1;
+    searchKeysOfsFlat.clear();
+    searchLastKeyIdx = -1;
+    searchString.clear();
+}
+
 CRegistryModel::CRegistryModel()
 {
     cgl->reg->treeModel = this;
+    hiveChanged(QModelIndex());
 }
 
 void CRegistryModel::beginInsertRows(const QModelIndex &parent, int first, int last)
@@ -187,6 +204,7 @@ bool CRegistryModel::createKey(const QModelIndex &parent, const QString &name)
 
     QList<int> sl = cgl->reg->listKeysOfs(h, k);
 
+    hiveChanged(parent);
     beginInsertRows(parent,sl.count(),sl.count());
     bool res = cgl->reg->createKey(h, k, name);
     endInsertRows();
@@ -209,49 +227,116 @@ void CRegistryModel::deleteKey(const QModelIndex &idx)
 
     int kidx = kl.indexOf(name);
     if (kl.contains(name)) {
+        hiveChanged(idx.parent());
         beginRemoveRows(idx.parent(),kidx,kidx);
         cgl->reg->deleteKey(h, k, name);
         endRemoveRows();
     }
 }
 
-bool CRegistryModel::searchText(QProgressDialog *dlg, const QModelIndex &idx, const QString &text)
+void CRegistryModel::searchText(CProgressDialog *dlg, const QModelIndex &idx, const QString &text)
 {
-    if (!idx.isValid()) return false;
-    if (dlg==NULL || text.isEmpty() || dlg->wasCanceled()) return true; // finish search
-
-    QApplication::processEvents();
-    bool iok;
-    int snum = text.toInt(&iok);
+    if (!idx.isValid() || (dlg==NULL) || text.isEmpty() || dlg->wasCanceled()) {
+        hiveChanged(QModelIndex());
+        emit searchFinished();
+        return;
+    }
 
     struct nk_key* k;
     struct hive* h;
     int hive;
-    if (!cgl->reg->keyPrepare(idx.internalPointer(),h,hive,k)) return true;
-
-    if (cgl->reg->getKeyName(h, k).contains(text,Qt::CaseInsensitive)) {
-        emit keyFound(idx,QString());
-        return true;
+    if (!cgl->reg->keyPrepare(idx.internalPointer(),h,hive,k)) {
+        hiveChanged(QModelIndex());
+        emit searchFinished();
+        return;
     }
 
-    QList<CValue> vl = cgl->reg->listValues(h, k);
-    foreach (const CValue v, vl)
-        if (v.name.contains(text,Qt::CaseInsensitive) ||
-                v.vString.contains(text,Qt::CaseInsensitive) ||
-                v.vOther.contains(text.toUtf8()) ||
-                ((v.type==REG_DWORD)&&iok&&(v.vDWORD==snum)))
-        {
-            emit keyFound(idx,v.name);
-            return true;
+    searchKeysOfsFlat = cgl->reg->listAllKeysOfsFlat(h,k);
+    searchHive = hive;
+    searchLastKeyIdx = -1;
+    searchString = text;
+
+    continueSearch(dlg);
+}
+
+QModelIndex CRegistryModel::getKeyIndex(struct hive *hdesc, struct nk_key *key)
+{
+    QStack<int> ofs;
+    struct nk_key *k = key;
+    int a = cgl->reg->getKeyOfs(hdesc,k);
+    while (a!=(hdesc->rootofs+4)) {
+        ofs.push(a);
+        a = k->ofs_parent + 0x1004;
+        k = cgl->reg->getKeyPtr(hdesc,a);
+    }
+
+    QModelIndex idx = index(cgl->reg->getHive(key),0,QModelIndex());
+    while (!ofs.isEmpty()) {
+        int ko = ofs.pop();
+        for (int i=0;i<rowCount(idx);i++) {
+            QModelIndex pidx = index(i,0,idx);
+            if (pidx.internalPointer()==cgl->reg->getKeyPtr(hdesc,ko)) {
+                idx = pidx;
+                break;
+            }
+        }
+    }
+
+    return idx;
+}
+
+void CRegistryModel::continueSearch(CProgressDialog *dlg)
+{
+    // TODO: search facility needs to be moved to separate thread
+
+    if (searchKeysOfsFlat.isEmpty() || searchString.isEmpty() || (dlg==NULL)) return;
+
+    struct hive *h = cgl->reg->getHivePtr(searchHive);
+    if (h==NULL) { // OOPS. No more hive. Clean all and exit.
+        hiveChanged(QModelIndex());
+        return;
+    }
+
+    QMetaObject::invokeMethod(dlg,"show");
+
+    bool iok;
+    int snum = searchString.toInt(&iok);
+
+    while (true) {
+        searchLastKeyIdx++;
+        if (searchLastKeyIdx>=searchKeysOfsFlat.count()) {
+            searchLastKeyIdx=-1;
+            QMetaObject::invokeMethod(dlg,"hide");
+            emit searchFinished();
+            return;
         }
 
-    for (int i=0;i<k->no_subkeys;i++) {
-        if (searchText(dlg,idx.child(i,0),text))
-            return true;
+        struct nk_key *k = cgl->reg->getKeyPtr(h,searchKeysOfsFlat.at(searchLastKeyIdx));
+        if (cgl->reg->getKeyName(h,k).contains(searchString,Qt::CaseInsensitive)) {
+            qDebug() << cgl->reg->getKeyFullPath(h, k);
+            QMetaObject::invokeMethod(dlg,"hide");
+            emit keyFound(getKeyIndex(h, k),QString());
+            return;
+        }
+
+        QList<CValue> vl = cgl->reg->listValues(h, k);
+        foreach (const CValue v, vl)
+            if (v.name.contains(searchString,Qt::CaseInsensitive) ||
+                    v.vString.contains(searchString,Qt::CaseInsensitive) ||
+                    v.vOther.contains(searchString.toUtf8()) ||
+                    ((v.type==REG_DWORD)&&iok&&(v.vDWORD==snum)))
+            {
+                qDebug() << cgl->reg->getKeyFullPath(h, k) << v.name;
+                QMetaObject::invokeMethod(dlg,"hide");
+                emit keyFound(getKeyIndex(h, k), v.name);
+                return;
+            }
+
+        QApplication::processEvents();
         if (dlg->wasCanceled())
-            return false;
+            break;
     }
-    return false;
+    QMetaObject::invokeMethod(dlg,"hide");
 }
 
 CValuesModel::CValuesModel()

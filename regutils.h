@@ -63,6 +63,7 @@ public:
 
     QStringList listKeys(struct hive *hdesc, nk_key *key);
     QList<int> listKeysOfs(struct hive *hdesc, nk_key *key);
+    QList<int> listAllKeysOfsFlat(struct hive *hdesc, nk_key *key);
     struct nk_key * getKeyPtr(struct hive* hdesc, int nkofs);
     int getKeyOfs(struct hive* hdesc, struct nk_key* key);
     QString getKeyName(struct hive *hdesc, struct nk_key* key);

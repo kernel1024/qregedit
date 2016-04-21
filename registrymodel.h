@@ -5,13 +5,23 @@
 #include <QTableView>
 #include <QVector>
 #include <QString>
-#include <QProgressDialog>
 
 class CValue;
+class CProgressDialog;
+struct hive;
+struct nk_key;
 
 class CRegistryModel : public QAbstractItemModel
 {
     Q_OBJECT
+private:
+    int searchHive;
+    QList<int> searchKeysOfsFlat;
+    int searchLastKeyIdx;
+    QString searchString;
+    void hiveChanged(const QModelIndex& idx);
+    QModelIndex getKeyIndex(struct hive *hdesc, struct nk_key *key);
+
 public:
     CRegistryModel();
 
@@ -21,11 +31,12 @@ public:
     void endRemoveRows();
 
     int getHiveIdx(const QModelIndex& index);
-
     QString getKeyName(const QModelIndex &index) const;
     bool createKey(const QModelIndex &parent, const QString& name);
     void deleteKey(const QModelIndex &idx);
-    bool searchText(QProgressDialog *dlg, const QModelIndex& idx, const QString& text);
+
+    void searchText(CProgressDialog *dlg, const QModelIndex& idx, const QString& text);
+    void continueSearch(CProgressDialog* dlg);
 protected:
     QModelIndex index(int row, int column, const QModelIndex &parent) const;
     QModelIndex parent(const QModelIndex &child) const;
@@ -36,6 +47,7 @@ protected:
 
 signals:
     void keyFound(const QModelIndex &index, const QString &value);
+    void searchFinished();
 
 };
 
