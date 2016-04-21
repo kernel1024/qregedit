@@ -10,9 +10,14 @@ CProgressDialog::CProgressDialog(QWidget *parent) :
     ui->label->setText(tr("Searching registry"));
     ui->progressBar->setMinimum(0);
     ui->progressBar->setMaximum(0);
+
+    setWindowTitle(tr("Registry Editor search"));
+    setWindowModality(Qt::WindowModal);
+
     m_canceled = false;
     connect(ui->buttonCancel,&QPushButton::clicked,[this](){
         m_canceled = true;
+        emit cancel();
     });
 }
 

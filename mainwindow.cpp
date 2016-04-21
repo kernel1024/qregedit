@@ -35,6 +35,10 @@ CMainWindow::CMainWindow(QWidget *parent) :
     ui->treeHives->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->tableValues->setContextMenuPolicy(Qt::CustomContextMenu);
 
+    centerWindow();
+
+    searchProgressDialog = new CProgressDialog(this);
+
     ui->actionOpenHiveRO->setData(1);
     connect(ui->actionExit,&QAction::triggered,this,&CMainWindow::close);
     connect(ui->actionOpenHive,&QAction::triggered,this,&CMainWindow::openHive);
@@ -44,9 +48,18 @@ CMainWindow::CMainWindow(QWidget *parent) :
     connect(ui->actionSettings,&QAction::triggered,[this](){
        cgl->settingsDialog(this);
     });
+
     connect(ui->actionFind,&QAction::triggered,this,&CMainWindow::searchTxt);
-    connect(ui->actionFindAgain,&QAction::triggered,[this](){
-        treeModel->continueSearch(searchProgressDialog);
+    connect(ui->actionFindAgain,&QAction::triggered,
+            treeModel->finder,&CFinder::continueSearch,Qt::QueuedConnection);
+    connect(treeModel->finder,&CFinder::showProgressDialog,
+            searchProgressDialog,&CProgressDialog::show,Qt::QueuedConnection);
+    connect(treeModel->finder,&CFinder::hideProgressDialog,
+            searchProgressDialog,&CProgressDialog::hide,Qt::QueuedConnection);
+    connect(this,&CMainWindow::startSearch,
+            treeModel->finder,&CFinder::searchText,Qt::QueuedConnection);
+    connect(searchProgressDialog,&CProgressDialog::cancel,[this](){
+       treeModel->finder->cancelSearch();
     });
 
     connect(ui->treeHives,&QTreeView::clicked,this,&CMainWindow::showValues);
@@ -60,19 +73,15 @@ CMainWindow::CMainWindow(QWidget *parent) :
             this,&CMainWindow::valuesModify);
 
     connect(treeModel,&CRegistryModel::keyFound,this,&CMainWindow::keyFound);
-    connect(treeModel,&CRegistryModel::searchFinished,[this](){
-        QMessageBox::information(this,tr("Registry Editor"),tr("Search completed."));
-    });
+    connect(treeModel->finder,&CFinder::searchFinished,
+            this,&CMainWindow::searchFinished,Qt::QueuedConnection);
+
     connect(cgl->reg,&CRegController::hiveAboutToClose,this,&CMainWindow::hivePrepareClose);
 
     QShortcut* sc = new QShortcut(QKeySequence(QKeySequence::Delete),ui->tableValues);
     connect(sc,&QShortcut::activated,[this](){
         deleteValue(ui->tableValues->currentIndex());
     });
-
-    centerWindow();
-
-    searchProgressDialog = createProgressDialog();
 
     QStringList args = QApplication::arguments();
     for (int i=1;i<args.count();i++)
@@ -107,13 +116,6 @@ void CMainWindow::centerWindow()
     QList<int> sz;
     sz << nw.width()/4 << 3*nw.width()/4;
     ui->splitter->setSizes(sz);
-}
-
-void CMainWindow::searchText(const QModelIndex &idx, const QString &text)
-{
-    if (!idx.isValid() || text.isEmpty()) return;
-
-    treeModel->searchText(searchProgressDialog,idx,text);
 }
 
 void CMainWindow::closeEvent(QCloseEvent *event)
@@ -217,7 +219,7 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
             QString s = QInputDialog::getText(this,tr("Registry Editor"),
                                                      tr("Search text"),QLineEdit::Normal,QString(),&ok);
             if (ok && !s.isEmpty())
-                searchText(idx,s);
+                emit startSearch(idx,s);
         });
     }
 
@@ -232,14 +234,6 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
     else
         cm->exec(ui->treeHives->mapToGlobal(pos));
     cm->deleteLater();
-}
-
-CProgressDialog *CMainWindow::createProgressDialog()
-{
-    CProgressDialog *dlg = new CProgressDialog(this);
-    dlg->setWindowTitle(tr("Registry Editor"));
-    dlg->setWindowModality(Qt::WindowModal);
-    return dlg;
 }
 
 void CMainWindow::valuesCtxMenu(const QPoint &pos)
@@ -350,7 +344,12 @@ void CMainWindow::searchTxt()
     QString s = QInputDialog::getText(this,tr("Registry Editor"),
                                              tr("Search text"),QLineEdit::Normal,QString(),&ok);
     if (ok && !s.isEmpty())
-        searchText(idx,s);
+        emit startSearch(idx,s);
+}
+
+void CMainWindow::searchFinished()
+{
+    QMessageBox::information(this,tr("Registry Editor"),tr("Search completed."));
 }
 
 void CMainWindow::deleteValue(const QModelIndex &value)

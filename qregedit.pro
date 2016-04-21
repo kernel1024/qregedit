@@ -14,7 +14,8 @@ SOURCES += main.cpp\
     valueeditor.cpp \
     settingsdlg.cpp \
     functions.cpp \
-    progressdialog.cpp
+    progressdialog.cpp \
+    finder.cpp
 
 HEADERS  += mainwindow.h \
     chntpw/ntreg.h \
@@ -24,7 +25,8 @@ HEADERS  += mainwindow.h \
     valueeditor.h \
     settingsdlg.h \
     functions.h \
-    progressdialog.h
+    progressdialog.h \
+    finder.h
 
 FORMS    += mainwindow.ui \
     valueeditor.ui \

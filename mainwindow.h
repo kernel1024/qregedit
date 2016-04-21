@@ -21,7 +21,6 @@ public:
     ~CMainWindow();
 
     void centerWindow();
-    void searchText(const QModelIndex& idx, const QString& text);
 private:
     Ui::MainWindow *ui;
     CRegistryModel *treeModel;
@@ -29,10 +28,12 @@ private:
     QSortFilterProxyModel *valuesSortModel;
     CProgressDialog *searchProgressDialog;
     void treeCtxMenuPrivate(const QPoint& pos, const bool fromValuesTable);
-    CProgressDialog *createProgressDialog();
 
 protected:
     void closeEvent(QCloseEvent *event);
+
+signals:
+    void startSearch(const QModelIndex &idx, const QString &text);
 
 public slots:
     void openHive();
@@ -45,6 +46,7 @@ public slots:
     void about();
     void keyFound(const QModelIndex& key, const QString& value);
     void searchTxt();
+    void searchFinished();
     void deleteValue(const QModelIndex& value);
 
 };

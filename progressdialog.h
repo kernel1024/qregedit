@@ -26,6 +26,9 @@ public:
     void setMaximum(int max);
     void setValue(int value);
 
+signals:
+    void cancel();
+
 };
 
 #endif // PROGRESSDIALOG_H

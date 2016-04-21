@@ -5,24 +5,22 @@
 #include <QTableView>
 #include <QVector>
 #include <QString>
+#include "finder.h"
 
 class CValue;
-class CProgressDialog;
 struct hive;
 struct nk_key;
 
 class CRegistryModel : public QAbstractItemModel
 {
     Q_OBJECT
+
 private:
-    int searchHive;
-    QList<int> searchKeysOfsFlat;
-    int searchLastKeyIdx;
-    QString searchString;
-    void hiveChanged(const QModelIndex& idx);
     QModelIndex getKeyIndex(struct hive *hdesc, struct nk_key *key);
 
 public:
+    CFinder* finder;
+
     CRegistryModel();
 
     void beginInsertRows(const QModelIndex &parent, int first, int last);
@@ -35,8 +33,6 @@ public:
     bool createKey(const QModelIndex &parent, const QString& name);
     void deleteKey(const QModelIndex &idx);
 
-    void searchText(CProgressDialog *dlg, const QModelIndex& idx, const QString& text);
-    void continueSearch(CProgressDialog* dlg);
 protected:
     QModelIndex index(int row, int column, const QModelIndex &parent) const;
     QModelIndex parent(const QModelIndex &child) const;
@@ -47,7 +43,9 @@ protected:
 
 signals:
     void keyFound(const QModelIndex &index, const QString &value);
-    void searchFinished();
+
+private slots:
+    void finderKeyFound(struct hive *hdesc, struct nk_key *key, const QString &value);
 
 };
 
