@@ -375,10 +375,9 @@ QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, int f
         case REG_MULTI_SZ:
             int outlen;
             string = string_regw2prog(data, len, &outlen);
-            for (i = 0; i < outlen; i++) {
-                if (string[i] == 0) string[i] = '\n';
-                if (type == REG_SZ) break;
-            }
+            if (type==REG_MULTI_SZ)
+                for (i = 0; i < outlen; i++)
+                    if (string[i] == 0) string[i] = '\n';
             res = QString(string);
             FREE(string);
             break;
@@ -394,7 +393,7 @@ QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, int f
 }
 
 
-QString CRegController::getKeyFullPath(struct hive *hdesc, struct nk_key *key)
+QString CRegController::getKeyFullPath(struct hive *hdesc, struct nk_key *key, bool skipRoot)
 {
     QStringList keys;
     struct nk_key* k = key;
@@ -405,7 +404,9 @@ QString CRegController::getKeyFullPath(struct hive *hdesc, struct nk_key *key)
             return QString();
         keys.prepend(getKeyName(hdesc, k));
     }
-    return QString("\\\\"+keys.join("\\"));
+    if (skipRoot)
+        keys.removeFirst();
+    return QString("\\"+keys.join("\\"));
 }
 
 bool CRegController::createKey(hive *hdesc, nk_key *parent, const QString &name)
@@ -418,6 +419,86 @@ void CRegController::deleteKey(hive *hdesc, nk_key *parent, const QString &name)
 {
     QString s = name;
     rdel_keys(hdesc, s.toUtf8().data(), cgl->reg->getKeyOfs(hdesc, parent));
+}
+
+QString quoteString(const QString& str)
+{
+    QString s = str;
+    s.replace('\\',"\\\\");
+    s.replace('\"',"\\\"");
+    return s;
+}
+
+void exportBin(const QByteArray& data, int type, int &col, QTextStream &file)
+{
+    if (type == REG_BINARY) {
+        file << "hex:";
+        col += 4;
+    } else {
+        file << QString("hex(%1):").arg(type,0,16);
+        col += 7;
+    }
+    int start = (col  - 2) / 3;
+    for (int i=0;i<data.size();i++) {
+        if (i<(data.size()-1))
+            file << QString("%1,").arg((quint8)data.at(i),2,16,QChar('0'));
+        else
+            file << QString("%1").arg((quint8)data.at(i),2,16,QChar('0'));
+        if (!((i + start) % 25)) file << "\\\r\n  ";
+    }
+    file << "\r\n";
+}
+
+bool CRegController::exportKey(struct hive *hdesc, struct nk_key *key, const QString &prefix, QTextStream &file)
+{
+    QString path = getKeyFullPath(hdesc, key, true);
+    // export the key
+    file << "\r\n";
+    file << QString("[%1\%2]\r\n").arg(prefix, path);
+    // export values
+    QList<CValue> vl = listValues(hdesc, key);
+    foreach (const CValue v, vl) {
+        int col = 0;
+        QString name = quoteString(v.name);
+
+        /* print name */
+        if (name.isEmpty()) {
+            file << "@=";
+            name = QString("@");
+            col += 2;
+        } else {
+            file << QString("\"%1\"=").arg(name);
+            col += name.length() + 3;
+        }
+
+        if(v.type == REG_DWORD)
+        {
+            file << QString("dword:%1\r\n").arg(v.vDWORD,8,16,QChar('0'));
+        }
+        else if(v.type == REG_SZ)
+        {
+            bool hex = false;
+            for (int i=0;i<v.vString.length();i++)
+                if (!v.vString.at(i).isPrint()) {
+                    exportBin(v.vString.toUtf8(),v.type,col,file);
+                    hex = true;
+                    break;
+                }
+            if (!hex)
+                file << QString("\"%1\"\r\n").arg(quoteString(v.vString));
+        }
+        else
+        {
+            exportBin(v.vOther,v.type,col,file);
+        }
+    }
+
+    // export subkeys
+    QList<int> kl = listKeysOfs(hdesc, key);
+    foreach (const int ofs, kl)
+        exportKey(hdesc, getKeyPtr(hdesc, ofs), prefix, file);
+
+    return true;
 }
 
 int CRegController::getHive(const struct nk_key *key) const

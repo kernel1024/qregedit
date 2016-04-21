@@ -1,4 +1,3 @@
-#include <QFileDialog>
 #include <QDesktopWidget>
 #include <QIcon>
 #include <QInputDialog>
@@ -135,7 +134,7 @@ void CMainWindow::openHive()
     if (b && (t==1))
         mode = HMODE_RO;
 
-    QString fname = QFileDialog::getOpenFileName(this,tr("Registry files"));
+    QString fname = getOpenFileNameD(this,tr("Open registry hive"));
     if (!fname.isEmpty())
         if (!cgl->reg->openTopHive(fname, mode))
             QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to open hive file.\n"
@@ -172,7 +171,7 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
     if (hive<0) return;
 
     QAction* acm;
-    QMenu* ccm = cm->addMenu(tr("Create"));
+    QMenu* ccm = cm->addMenu(tr("New"));
     {
         acm = ccm->addAction(tr("Key"));
         acm->setData(-1);
@@ -211,9 +210,21 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
         connect(acm,&QAction::triggered,[this,idx](){
             QApplication::clipboard()->setText(treeModel->getKeyName(idx));
         });
+        acm = cm->addAction(tr("Export..."));
+        connect(acm,&QAction::triggered,[this,idx](){
+            QString fname = getSaveFileNameD(this,tr("Export registry"),QString(),
+                                             tr("Registry files (*.reg)"));
+            if (!fname.isEmpty()) {
+                if (!treeModel->exportKey(idx,fname))
+                    QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to export selected key."));
+                else
+                    QMessageBox::information(this,tr("Registry Editor"),
+                                             tr("Registry key exported successfully."));
+            }
+        });
 
         cm->addSeparator();
-        acm = cm->addAction(tr("Search"));
+        acm = cm->addAction(tr("Find..."));
         connect(acm,&QAction::triggered,[this,idx](){
             bool ok;
             QString s = QInputDialog::getText(this,tr("Registry Editor"),

@@ -7,6 +7,7 @@
 #include <QList>
 #include <QPointer>
 #include <QAbstractItemModel>
+#include <QTextStream>
 
 extern "C" {
 #include <chntpw/ntreg.h>
@@ -21,7 +22,7 @@ public:
     QString name;
     int type;
     int size;
-    int vDWORD;
+    quint32 vDWORD;
     QString vString;
     QByteArray vOther;
     struct vex_data m_vex;
@@ -68,9 +69,10 @@ public:
     int getKeyOfs(struct hive* hdesc, struct nk_key* key);
     QString getKeyName(struct hive *hdesc, struct nk_key* key);
     QString getKeyTooltip(struct hive *hdesc, struct nk_key* key);
-    QString getKeyFullPath(struct hive *hdesc, struct nk_key* key);
+    QString getKeyFullPath(struct hive *hdesc, struct nk_key* key, bool skipRoot = false);
     bool createKey(struct hive *hdesc, struct nk_key* parent, const QString& name);
     void deleteKey(struct hive *hdesc, struct nk_key* parent, const QString& name);
+    bool exportKey(struct hive *hdesc, struct nk_key* key, const QString &prefix, QTextStream &file);
 
     QVariant getValue(struct hive *hdesc, struct vex_data vex, int forceHex);
     QList<CValue> listValues(struct hive *hdesc, struct nk_key *key);

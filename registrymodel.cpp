@@ -2,6 +2,8 @@
 #include <QMessageBox>
 #include <QThread>
 #include <QStack>
+#include <QFile>
+#include <QTextStream>
 #include "progressdialog.h"
 #include "registrymodel.h"
 #include "global.h"
@@ -155,7 +157,7 @@ QVariant CRegistryModel::data(const QModelIndex &index, int role) const
     } else if (role == Qt::DecorationRole) {
         return QIcon(":/icons/folder");
     } else if (role == Qt::StatusTipRole) {
-        QString s = cgl->reg->getKeyFullPath(h, k);
+        QString s = QString("\\") + cgl->reg->getKeyFullPath(h, k);
         if (!s.isEmpty()) return s;
     }
 
@@ -225,6 +227,44 @@ void CRegistryModel::deleteKey(const QModelIndex &idx)
         cgl->reg->deleteKey(h, k, name);
         endRemoveRows();
     }
+}
+
+bool CRegistryModel::exportKey(const QModelIndex &idx, const QString &filename)
+{
+    if (!idx.isValid())
+        return false;
+
+    struct nk_key* k;
+    struct hive* h;
+    int hive;
+    if (!cgl->reg->keyPrepare(idx.internalPointer(),h,hive,k))
+        return false;
+
+    QString prefix;
+    switch (h->type) {
+        case HTYPE_SAM: prefix = QString("HKEY_LOCAL_MACHINE\\SAM"); break;
+        case HTYPE_SYSTEM: prefix = QString("HKEY_LOCAL_MACHINE\\SYSTEM"); break;
+        case HTYPE_SECURITY: prefix = QString("HKEY_LOCAL_MACHINE\\SECURITY"); break;
+        case HTYPE_SOFTWARE: prefix = QString("HKEY_LOCAL_MACHINE\\SOFTWARE"); break;
+        case HTYPE_USER: prefix = QString("HKEY_CURRENT_USER"); break;
+        default: break;
+    }
+
+    QFile f(filename);
+    if (!f.open(QIODevice::WriteOnly))
+        return false;
+    QTextStream ts(&f);
+    ts.setCodec("UTF-16");
+    ts.setGenerateByteOrderMark(true);
+    ts << "Windows Registry Editor Version 5.00\r\n";
+
+    bool res = cgl->reg->exportKey(h, k, prefix, ts);
+
+    ts << "\r\n";
+    ts.flush();
+    f.close();
+
+    return res;
 }
 
 QModelIndex CRegistryModel::getKeyIndex(struct hive *hdesc, struct nk_key *key)

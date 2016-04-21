@@ -33,6 +33,8 @@ public:
     bool createKey(const QModelIndex &parent, const QString& name);
     void deleteKey(const QModelIndex &idx);
 
+    bool exportKey(const QModelIndex &idx, const QString& filename);
+
 protected:
     QModelIndex index(int row, int column, const QModelIndex &parent) const;
     QModelIndex parent(const QModelIndex &child) const;
