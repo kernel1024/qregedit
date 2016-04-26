@@ -85,6 +85,7 @@
     </property>
     <addaction name="actionOpenHive"/>
     <addaction name="actionOpenHiveRO"/>
+    <addaction name="actionImport"/>
     <addaction name="separator"/>
     <addaction name="actionExit"/>
    </widget>
@@ -141,7 +142,7 @@
   </action>
   <action name="actionFind">
    <property name="text">
-    <string>Find...</string>
+    <string>&amp;Find...</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+F</string>
@@ -149,10 +150,15 @@
   </action>
   <action name="actionFindAgain">
    <property name="text">
-    <string>Find again</string>
+    <string>Find &amp;again</string>
    </property>
    <property name="shortcut">
     <string>F3</string>
+   </property>
+  </action>
+  <action name="actionImport">
+   <property name="text">
+    <string>Import...</string>
    </property>
   </action>
  </widget>

@@ -21,7 +21,6 @@ class CValue
 public:
     QString name;
     int type;
-    int size;
     quint32 vDWORD;
     QString vString;
     QByteArray vOther;
@@ -50,8 +49,6 @@ public:
 
     CRegController(QObject* parent = 0);
 
-    QByteArray toUtf16(const QString &str);
-
     bool openTopHive(const QString &filename, int mode);
     bool saveTopHive(int idx);
     void closeTopHive(int idx);
@@ -73,6 +70,7 @@ public:
     bool createKey(struct hive *hdesc, struct nk_key* parent, const QString& name);
     void deleteKey(struct hive *hdesc, struct nk_key* parent, const QString& name);
     bool exportKey(struct hive *hdesc, struct nk_key* key, const QString &prefix, QTextStream &file);
+    bool importReg(struct hive *hdesc, const QString& filename);
 
     QVariant getValue(struct hive *hdesc, struct vex_data vex, int forceHex);
     QList<CValue> listValues(struct hive *hdesc, struct nk_key *key);
@@ -84,6 +82,9 @@ public:
     bool setValue(struct hive *hdesc, struct nk_key *key, const CValue& value);
     bool deleteValue(struct hive *hdesc, struct nk_key *key, const QString& vname);
     bool createValue(struct hive *hdesc, struct nk_key *key, int vtype, const QString& vname);
+    QString getHivePrefix(struct hive *hdesc);
+    int findKeyOfs(struct hive *hdesc, struct nk_key *key, const QString &name);
+    struct nk_key *navigateKey(struct hive *hdesc, const QString &path, bool allowCreate=false);
 signals:
     void hiveOpened(int idx);
     void hiveClosed(int old_idx);

@@ -3954,7 +3954,7 @@ int parse_valuestring(char *s, char *w, int len, int wide, struct keyval **kvptr
  * prefix - HKEY_
  */
 
-void import_reg(struct hive *hdesc, char *filename, char *prefix)
+int import_reg(struct hive *hdesc, char *filename, char *prefix)
 {
 
     FILE *file;
@@ -3985,7 +3985,7 @@ void import_reg(struct hive *hdesc, char *filename, char *prefix)
     {
       fprintf(stderr,"import_reg: Cannot open file '%s'. %s (%d).\n", filename, strerror(errno),
                 errno);
-        return;
+        return -1;
     }
  
     c = fgetc(file);
@@ -4007,7 +4007,7 @@ void import_reg(struct hive *hdesc, char *filename, char *prefix)
     if (strncmp("Windows Registry Editor",line,23)) {
       fprintf(stderr,"import_reg: ERROR: Windows Registry Editor signature missing on first line\n");
       fclose(file);
-      return;
+      return -2;
     }
 
     do {
@@ -4163,7 +4163,11 @@ void import_reg(struct hive *hdesc, char *filename, char *prefix)
     fclose(file);
 
     if (bailout) hdesc->state &= ~HMODE_DIRTY;    /* Don't save if error. Or should we? */
-    
+
+    if (bailout)
+        return -3;
+
+    return 0;
 }
 
 

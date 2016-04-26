@@ -240,15 +240,7 @@ bool CRegistryModel::exportKey(const QModelIndex &idx, const QString &filename)
     if (!cgl->reg->keyPrepare(idx.internalPointer(),h,hive,k))
         return false;
 
-    QString prefix;
-    switch (h->type) {
-        case HTYPE_SAM: prefix = QString("HKEY_LOCAL_MACHINE\\SAM"); break;
-        case HTYPE_SYSTEM: prefix = QString("HKEY_LOCAL_MACHINE\\SYSTEM"); break;
-        case HTYPE_SECURITY: prefix = QString("HKEY_LOCAL_MACHINE\\SECURITY"); break;
-        case HTYPE_SOFTWARE: prefix = QString("HKEY_LOCAL_MACHINE\\SOFTWARE"); break;
-        case HTYPE_USER: prefix = QString("HKEY_CURRENT_USER"); break;
-        default: break;
-    }
+    QString prefix = cgl->reg->getHivePrefix(h);
 
     QFile f(filename);
     if (!f.open(QIODevice::WriteOnly))

@@ -37,6 +37,7 @@ signals:
 
 public slots:
     void openHive();
+    void importReg();
     void showValues(const QModelIndex& key);
     void hivePrepareClose(int idx);
     void treeCtxMenu(const QPoint& pos) { treeCtxMenuPrivate(pos, false); }

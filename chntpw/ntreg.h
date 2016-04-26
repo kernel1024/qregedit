@@ -437,7 +437,7 @@ struct keyval *get_class(struct hive *hdesc, int curnk, char *path);
 
 int add_bin(struct hive *hdesc, int size);
 
-void import_reg(struct hive *hdesc, char *filename, char *prefix);
+int import_reg(struct hive *hdesc, char *filename, char *prefix);
 
 int de_escape(char *s, int wide);
 

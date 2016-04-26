@@ -42,6 +42,7 @@ CMainWindow::CMainWindow(QWidget *parent) :
     connect(ui->actionExit,&QAction::triggered,this,&CMainWindow::close);
     connect(ui->actionOpenHive,&QAction::triggered,this,&CMainWindow::openHive);
     connect(ui->actionOpenHiveRO,&QAction::triggered,this,&CMainWindow::openHive);
+    connect(ui->actionImport,&QAction::triggered,this,&CMainWindow::importReg);
     connect(ui->actionAbout,&QAction::triggered,this,&CMainWindow::about);
     connect(ui->actionAboutQt,&QAction::triggered,qApp,&QApplication::aboutQt);
     connect(ui->actionSettings,&QAction::triggered,[this](){
@@ -141,6 +142,29 @@ void CMainWindow::openHive()
                                                                 "See standard output for debug messages."));
 }
 
+void CMainWindow::importReg()
+{
+    int idx = treeModel->getHiveIdx(ui->treeHives->currentIndex());
+    if (idx<0) return;
+
+    QString fname = getOpenFileNameD(this,tr("Import REG file to selected hive"));
+    if (!fname.isEmpty()) {
+        if (!cgl->reg->importReg(cgl->reg->getHivePtr(idx), fname)) {
+            QMessageBox::critical(this,tr("Registry Editor"),
+                                  tr("Failed to import file. See log for error messages.\n"
+                                     "Please, do not save hive %1!")
+                                  .arg(cgl->reg->getHivePrefix(cgl->reg->getHivePtr(idx))));
+        } else {
+            ui->treeHives->collapseAll();
+            QMessageBox::information(this,tr("Registry Editor"),
+                                     tr("Registry file import successfull.\n"
+                                        "Hive %1 modified.")
+                                     .arg(cgl->reg->getHivePrefix(cgl->reg->getHivePtr(idx))));
+
+        }
+    }
+}
+
 void CMainWindow::showValues(const QModelIndex &key)
 {
     valuesModel->keyChanged(key, ui->tableValues);
@@ -201,6 +225,7 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
         if (idx.parent().isValid()) {
             connect(acm,&QAction::triggered,[this,idx](){
                 treeModel->deleteKey(idx);
+                valuesModel->keyChanged(QModelIndex(),ui->tableValues);
             });
         } else
             acm->setEnabled(false);

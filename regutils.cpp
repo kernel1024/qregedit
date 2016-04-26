@@ -12,13 +12,21 @@ CRegController::CRegController(QObject *parent)
     hives.clear();
 }
 
-QByteArray CRegController::toUtf16(const QString &str)
+QByteArray toUtf16(const QString &str)
 {
     QTextCodec *codec = QTextCodec::codecForName("UTF-16");
     QTextEncoder *encoderWithoutBom = codec->makeEncoder( QTextCodec::IgnoreHeader );
     QByteArray ba  = encoderWithoutBom ->fromUnicode( str );
     ba.append('\0'); ba.append('\0');
     return ba;
+}
+
+QString fromUtf16(const QByteArray &str)
+{
+    QTextCodec *codec = QTextCodec::codecForName("UTF-16");
+    QTextDecoder *decoderWithoutBom = codec->makeDecoder( QTextCodec::IgnoreHeader );
+    QString s  = decoderWithoutBom->toUnicode( str );
+    return s;
 }
 
 bool CRegController::openTopHive(const QString &filename, int mode)
@@ -168,6 +176,34 @@ QList<CValue> CRegController::listValues(struct hive *hdesc, struct nk_key *key)
     return vals;
 }
 
+int CRegController::findKeyOfs(struct hive *hdesc, struct nk_key *key, const QString& name)
+{
+    int nkofs;
+    struct ex_data ex;
+    int count = 0, countri = 0;
+
+    if (name.isEmpty()) return -3;
+
+    nkofs = cgl->reg->getKeyOfs(hdesc, key);
+
+    if (key->id != 0x6b6e) {
+        qCritical() << tr("Error: Not a 'nk' node at offset 0x%1!").arg(nkofs,0,16);
+        return -1;
+    }
+
+    if (key->no_subkeys) {
+        while ((ex_next_n(hdesc, nkofs, &count, &countri, &ex) > 0)) {
+            if (name==QString(ex.name)) {
+                FREE(ex.name);
+                return ex.nkoffs+4;
+            }
+            FREE(ex.name);
+        }
+    }
+
+    return -2;
+}
+
 QList<int> CRegController::listKeysOfs(struct hive *hdesc, struct nk_key *key)
 {
     int nkofs;
@@ -213,19 +249,26 @@ int CRegController::getKeyOfs(struct hive* hdesc, struct nk_key* key)
     return (int)((quintptr)key - (quintptr)(hdesc->buffer));
 }
 
+QString CRegController::getHivePrefix(struct hive* hdesc)
+{
+    QString ret;
+    switch (hdesc->type) {
+        case HTYPE_SAM: ret = QString("HKEY_LOCAL_MACHINE\\SAM"); break;
+        case HTYPE_SYSTEM: ret = QString("HKEY_LOCAL_MACHINE\\SYSTEM"); break;
+        case HTYPE_SECURITY: ret = QString("HKEY_LOCAL_MACHINE\\SECURITY"); break;
+        case HTYPE_SOFTWARE: ret = QString("HKEY_LOCAL_MACHINE\\SOFTWARE"); break;
+        case HTYPE_USER: ret = QString("HKEY_CURRENT_USER"); break;
+        default: break;
+    }
+    return ret;
+}
+
 QString CRegController::getKeyName(struct hive* hdesc, struct nk_key* key)
 {
     QString ret;
-    if (getKeyOfs(hdesc,key)==(hdesc->rootofs+4)) {
-        switch (hdesc->type) {
-            case HTYPE_SAM: ret = QString("HKEY_SAM"); break;
-            case HTYPE_SYSTEM: ret = QString("HKEY_SYSTEM"); break;
-            case HTYPE_SECURITY: ret = QString("HKEY_SECURITY"); break;
-            case HTYPE_SOFTWARE: ret = QString("HKEY_SOFTWARE"); break;
-            case HTYPE_USER: ret = QString("HKEY_USER"); break;
-            default: break;
-        }
-    }
+    if (getKeyOfs(hdesc,key)==(hdesc->rootofs+4))
+        ret = getHivePrefix(hdesc);
+
     if (!ret.isEmpty())
         return ret;
 
@@ -376,7 +419,7 @@ QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, int f
             int outlen;
             string = string_regw2prog(data, len, &outlen);
             if (type==REG_MULTI_SZ)
-                for (i = 0; i < outlen; i++)
+                for (i = 0; i < (outlen-1); i++)
                     if (string[i] == 0) string[i] = '\n';
             res = QString(string);
             FREE(string);
@@ -421,7 +464,7 @@ void CRegController::deleteKey(hive *hdesc, nk_key *parent, const QString &name)
     rdel_keys(hdesc, s.toUtf8().data(), cgl->reg->getKeyOfs(hdesc, parent));
 }
 
-QString quoteString(const QString& str)
+QString escapeString(const QString& str)
 {
     QString s = str;
     s.replace('\\',"\\\\");
@@ -459,7 +502,7 @@ bool CRegController::exportKey(struct hive *hdesc, struct nk_key *key, const QSt
     QList<CValue> vl = listValues(hdesc, key);
     foreach (const CValue v, vl) {
         int col = 0;
-        QString name = quoteString(v.name);
+        QString name = escapeString(v.name);
 
         /* print name */
         if (name.isEmpty()) {
@@ -485,7 +528,7 @@ bool CRegController::exportKey(struct hive *hdesc, struct nk_key *key, const QSt
                     break;
                 }
             if (!hex)
-                file << QString("\"%1\"\r\n").arg(quoteString(v.vString));
+                file << QString("\"%1\"\r\n").arg(escapeString(v.vString));
         }
         else
         {
@@ -499,6 +542,197 @@ bool CRegController::exportKey(struct hive *hdesc, struct nk_key *key, const QSt
         exportKey(hdesc, getKeyPtr(hdesc, ofs), prefix, file);
 
     return true;
+}
+
+struct nk_key* CRegController::navigateKey(struct hive *hdesc, const QString &path, bool allowCreate)
+{
+    struct nk_key* key = getKeyPtr(hdesc,hdesc->rootofs+4);
+
+    QStringList kl = path.split('\\',QString::SkipEmptyParts);
+
+    if (kl.isEmpty())
+        key = NULL;
+
+    while (!kl.isEmpty()) {
+        QString kn = kl.takeFirst();
+        int ofs = findKeyOfs(hdesc, key, kn);
+        if (ofs<0) {
+            if (allowCreate) {
+                if (!createKey(hdesc,key,kn)) {
+                    qCritical() << "navigateKey: failed to create key " << kn ;
+                    return NULL;
+                }
+                ofs = findKeyOfs(hdesc, key, kn);
+            } else {
+                qCritical() << "navigateKey: child not found " << kn ;
+                return NULL;
+            }
+        }
+        key = getKeyPtr(hdesc, ofs);
+    }
+
+    return key;
+}
+
+QString unquoteString(const QString& s)
+{
+    QString a = s;
+    if (!s.startsWith('"')) return a;
+    a.remove(0,1);
+    a.remove(a.length()-1,1);
+    return a;
+}
+
+QString unescapeString(const QString& s)
+{
+    QString a = s;
+    a.replace("\\\"","\"");
+    a.replace("\\\\","\\");
+    return a;
+}
+
+CValue parseValueStr(const QString& s)
+{
+    QString name;
+    QString val;
+    CValue v;
+
+    // search for '=' outside quotes
+    bool q = false;
+    for (int i=0;i<s.length();i++) {
+        if (s.at(i)==QChar('"')) q ^= 1;
+        if ((s.at(i)==QChar('=')) && !q) {
+            name = unescapeString(unquoteString(s.left(i)));
+            val = unescapeString(unquoteString(s.mid(i+1)));
+            break;
+        }
+    }
+    if (name.isEmpty()) {
+        qCritical() << "parseValueStr: empty value name parsed";
+        return CValue();
+    }
+
+    if (val.startsWith("dword")) {
+        v = CValue(REG_DWORD);
+        val.remove(0,val.indexOf(':')+1);
+        bool ok;
+        v.vDWORD = val.toInt(&ok,16);
+        if (!ok) {
+            qCritical() << "parseValueStr: incorrect hex dword value for " << v.name;
+            return CValue();
+        }
+    } else if (val.startsWith("hex")) {
+        int type = REG_BINARY;
+        QString vt = val.mid(3,val.indexOf(':')-3);
+        if (!vt.isEmpty()) {
+            vt.remove(0,1); vt.remove(vt.length()-1,1);
+            bool ok;
+            type = vt.toInt(&ok,16);
+            if (!ok) {
+                qCritical() << "parseValueStr: failed to parse value type " << v.name;
+                return CValue();
+            }
+        }
+        v = CValue(type);
+        val.remove(0,val.indexOf(':')+1);
+        while (!val.isEmpty()) {
+            bool ok;
+            v.vOther.append((quint8)val.left(2).toInt(&ok,16));
+            if (!ok) {
+                qCritical() << "parseValueStr: failed to parse hex value " << v.name;
+                return CValue();
+            }
+            val.remove(0,2);
+            if (val.startsWith(','))
+                val.remove(0,1);
+
+        }
+        if (v.type==REG_EXPAND_SZ ||
+                v.type==REG_MULTI_SZ) {
+            if (v.vOther.endsWith(QByteArray(2,0))) // remove trailing \0
+                v.vOther.remove(v.vOther.size()-2,2);
+            v.vString = fromUtf16(v.vOther);
+            if (v.type==REG_MULTI_SZ)
+                v.vString.replace(QChar(0),QChar('\n'));
+        }
+    } else {
+        v = CValue(REG_SZ);
+        v.vString = val;
+    }
+    v.name = name;
+    return v;
+}
+
+bool CRegController::importReg(struct hive *hdesc, const QString &filename)
+{
+/*    QString fname = filename;
+    QString prefix = getHivePrefix(hdesc);
+    return (import_reg(hdesc, fname.toUtf8().data(),prefix.toUtf8().data())==0);*/
+    QFile f(filename);
+    if (!f.open(QIODevice::ReadOnly)) {
+        qCritical() << "importReg: failed to open file" << filename;
+        return false;
+    }
+    QTextStream fs(&f);
+    QString prefix = getHivePrefix(hdesc);
+
+    QString sign = fs.readLine();
+    if (!sign.startsWith("Windows Registry Editor Version 5.00")) {
+        qCritical() << "importReg: file signature missing";
+        return false;
+    }
+
+    struct nk_key *key = NULL;
+    QString valacc;
+
+    while (!fs.atEnd()) {
+        QString s = fs.readLine().trimmed();
+
+        if (s.startsWith('[')) { // keyname
+            s.remove(0,1);
+            s.remove(s.length()-1,1);
+            if (!s.startsWith(prefix,Qt::CaseInsensitive)) {
+                qCritical() << tr("importReg: could not import key %1 to %2 registry hive").arg(s,prefix);
+                return false;
+            }
+            s.remove(prefix,Qt::CaseInsensitive);
+            key = navigateKey(hdesc, s, true);
+            if (key == NULL) {
+                qCritical() << "importReg: failed to navigate key " << s;
+                return false;
+            }
+            valacc.clear();
+        } else if (!s.isEmpty()) {
+            if (s.endsWith('\\')) { // string with wrap marker
+                s.remove(s.length()-1,1);
+                valacc+=s;
+                continue;
+            }
+            s = valacc + s; // Now we have complete value string
+
+            CValue v = parseValueStr(s);
+            if (v.isEmpty()) {
+                qCritical() << "importReg: failed to parse value " << s;
+                return false;
+            }
+
+            QList<CValue> vl = listValues(hdesc, key);
+            if (!vl.contains(v)) {
+                if (!createValue(hdesc, key, v.type, v.name)) {
+                    qCritical() << "importReg: failed to create value " << v.name;
+                    return false;
+                }
+            }
+            if (!setValue(hdesc, key, v)) {
+                qCritical() << "importReg: failed to set value " << v.name;
+                return false;
+            }
+            valacc.clear();
+        }
+    }
+
+    return true;
+
 }
 
 int CRegController::getHive(const struct nk_key *key) const
@@ -606,7 +840,6 @@ CValue::CValue()
 {
     name.clear();
     type = REG_NONE;
-    size = 0;
     vDWORD = 0;
     vString.clear();
     vOther.clear();
@@ -616,7 +849,6 @@ CValue::CValue(int atype)
 {
     name.clear();
     type = atype;
-    size = 0;
     vDWORD = 0;
     vString.clear();
     vOther.clear();
@@ -628,7 +860,6 @@ CValue::CValue(struct vex_data vex, const QString& str, const QByteArray& data)
     if (name.isEmpty())
         name = QString("@");
     type = vex.type;
-    size = vex.size;
     vDWORD = vex.val;
     vString = str;
     vOther = data;
@@ -638,7 +869,6 @@ CValue &CValue::operator=(const CValue &other)
 {
     name = other.name;
     type = other.type;
-    size = other.size;
     vDWORD = other.vDWORD;
     vString = other.vString;
     vOther = other.vOther;
@@ -648,7 +878,7 @@ CValue &CValue::operator=(const CValue &other)
 
 bool CValue::operator==(const CValue &ref) const
 {
-    return ((ref.name==name) && (ref.type==type) && (ref.size==size));
+    return ((ref.name==name) && (ref.type==type));
 }
 
 bool CValue::operator!=(const CValue &ref) const
