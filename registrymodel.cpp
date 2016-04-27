@@ -295,6 +295,7 @@ CValuesModel::CValuesModel()
     cgl->reg->valuesModel = this;
     key_ofs = -1;
     hive_num = -1;
+    val_count = 0;
     m_keyName.clear();
 }
 
@@ -302,18 +303,14 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
 {
     // Close old key
     if (hive_num>=0 && key_ofs>=0) {
-        struct hive* h = cgl->reg->getHivePtr(hive_num);
-        struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
-
-        QList<CValue> vl = cgl->reg->listValues(h, k);
-
-        if (!vl.isEmpty()) {
-            beginRemoveRows(QModelIndex(),0,vl.count()-1);
+        if (val_count>0) {
+            beginRemoveRows(QModelIndex(),0,val_count-1);
             endRemoveRows();
         }
 
         hive_num = -1;
         key_ofs = -1;
+        val_count = 0;
         m_keyName.clear();
     }
 
@@ -326,15 +323,16 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
     if (!cgl->reg->keyPrepare(key.internalPointer(),h,hive_num,ck)) {
         hive_num = -1;
         key_ofs = -1;
+        val_count = 0;
         m_keyName.clear();
         return;
     }
     key_ofs = cgl->reg->getKeyOfs(h,ck);
     m_keyName = cgl->reg->getKeyFullPath(h,ck);
+    val_count = cgl->reg->listValues(h, ck).count();
 
-    QList<CValue> vl = cgl->reg->listValues(h, ck);
-    if (!vl.isEmpty()) {
-        beginInsertRows(QModelIndex(),0,vl.count()-1);
+    if (val_count>0) {
+        beginInsertRows(QModelIndex(),0,val_count-1);
         endInsertRows();
     }
 
@@ -476,12 +474,7 @@ int CValuesModel::rowCount(const QModelIndex &parent) const
     if (hive_num<0 || key_ofs<0)
         return 0;
 
-    struct hive* h = cgl->reg->getHivePtr(hive_num);
-    struct nk_key* k = cgl->reg->getKeyPtr(h, key_ofs);
-
-    QList<CValue> vl = cgl->reg->listValues(h, k);
-
-    return vl.count();
+    return val_count;
 }
 
 int CValuesModel::columnCount(const QModelIndex &parent) const

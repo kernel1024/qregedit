@@ -149,19 +149,18 @@ void CMainWindow::importReg()
 
     QString fname = getOpenFileNameD(this,tr("Import REG file to selected hive"));
     if (!fname.isEmpty()) {
-        if (!cgl->reg->importReg(cgl->reg->getHivePtr(idx), fname)) {
+        if (!cgl->reg->importReg(cgl->reg->getHivePtr(idx), fname))
             QMessageBox::critical(this,tr("Registry Editor"),
                                   tr("Failed to import file. See log for error messages.\n"
                                      "Please, do not save hive %1!")
                                   .arg(cgl->reg->getHivePrefix(cgl->reg->getHivePtr(idx))));
-        } else {
-            ui->treeHives->collapseAll();
+        else
             QMessageBox::information(this,tr("Registry Editor"),
                                      tr("Registry file import successfull.\n"
                                         "Hive %1 modified.")
                                      .arg(cgl->reg->getHivePrefix(cgl->reg->getHivePtr(idx))));
 
-        }
+        ui->treeHives->collapseAll();
     }
 }
 

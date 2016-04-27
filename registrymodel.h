@@ -55,6 +55,7 @@ class CValuesModel : public QAbstractTableModel
 {
     Q_OBJECT
 private:
+    int val_count;
     int key_ofs;
     int hive_num;
     QString m_keyName;
