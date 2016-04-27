@@ -193,7 +193,7 @@ int CRegController::findKeyOfs(struct hive *hdesc, struct nk_key *key, const QSt
 
     if (key->no_subkeys) {
         while ((ex_next_n(hdesc, nkofs, &count, &countri, &ex) > 0)) {
-            if (name==QString(ex.name)) {
+            if (QString::compare(name,ex.name,Qt::CaseInsensitive)==0) {
                 FREE(ex.name);
                 return ex.nkoffs+4;
             }
