@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 int qf_strncasecmp(const char *s1, struct nk_key *s2);
+void qf_printf( const char* format, ... );
 
 #ifdef __cplusplus
 }

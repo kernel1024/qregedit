@@ -10,7 +10,11 @@
 #include "regutils.h"
 #include "mainwindow.h"
 #include "valueeditor.h"
+#include "logdisplay.h"
 #include "ui_mainwindow.h"
+
+// TODO: SAM interactive editor
+// TODO: SOFTWARE interactive editor
 
 CMainWindow::CMainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -48,6 +52,8 @@ CMainWindow::CMainWindow(QWidget *parent) :
     connect(ui->actionSettings,&QAction::triggered,[this](){
        cgl->settingsDialog(this);
     });
+    if (cgl->logWindow!=NULL)
+        connect(ui->actionLog,&QAction::triggered,cgl->logWindow,&CLogDisplay::show);
 
     connect(ui->actionFind,&QAction::triggered,this,&CMainWindow::searchTxt);
     connect(ui->actionFindAgain,&QAction::triggered,
@@ -139,7 +145,7 @@ void CMainWindow::openHive()
     if (!fname.isEmpty())
         if (!cgl->reg->openTopHive(fname, mode))
             QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to open hive file.\n"
-                                                                "See standard output for debug messages."));
+                                                                "See log messages for debug messages."));
 }
 
 void CMainWindow::importReg()

@@ -15,7 +15,8 @@ SOURCES += main.cpp\
     settingsdlg.cpp \
     functions.cpp \
     progressdialog.cpp \
-    finder.cpp
+    finder.cpp \
+    logdisplay.cpp
 
 HEADERS  += mainwindow.h \
     chntpw/ntreg.h \
@@ -26,12 +27,14 @@ HEADERS  += mainwindow.h \
     settingsdlg.h \
     functions.h \
     progressdialog.h \
-    finder.h
+    finder.h \
+    logdisplay.h
 
 FORMS    += mainwindow.ui \
     valueeditor.ui \
     settingsdlg.ui \
-    progressdialog.ui
+    progressdialog.ui \
+    logdisplay.ui
 
 OTHER_FILES += \
     LICENSE \

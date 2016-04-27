@@ -2,9 +2,12 @@
 #include <QByteArray>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <stdarg.h>
+#include <QDebug>
 
 #include "chntpw/ntreg.h"
 #include "functions.h"
+#include "global.h"
 
 /* Extended compare for key names with encoding
  * s1 - raw src keyname, in utf8 or Latin1 encoding
@@ -25,3 +28,12 @@ int qf_strncasecmp(const char *s1, struct nk_key *s2)
     return res;
 }
 
+void qf_printf( const char* format, ... ) {
+    va_list args;
+    va_start( args, format );
+    QString msg = QString::vasprintf(format, args);
+    va_end( args );
+
+    msg.remove(QRegExp("[\\x00-\\x1f]"));
+    QMessageLogger(0,0,0,"ntreg").debug() << msg;
+}

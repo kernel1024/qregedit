@@ -97,6 +97,7 @@
     <addaction name="actionFindAgain"/>
     <addaction name="separator"/>
     <addaction name="actionSettings"/>
+    <addaction name="actionLog"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -158,7 +159,12 @@
   </action>
   <action name="actionImport">
    <property name="text">
-    <string>Import...</string>
+    <string>&amp;Import...</string>
+   </property>
+  </action>
+  <action name="actionLog">
+   <property name="text">
+    <string>Show log</string>
    </property>
   </action>
  </widget>

@@ -3,7 +3,11 @@
 
 #include <QObject>
 #include <QFileDialog>
+#include <QStringList>
+#include "logdisplay.h"
 #include "regutils.h"
+
+extern QStringList debugMessages;
 
 class CGlobal : public QObject
 {
@@ -11,8 +15,10 @@ class CGlobal : public QObject
 public:
     int hiveOpenMode;
     CRegController* reg;
+    CLogDisplay* logWindow;
 
     explicit CGlobal(QObject *parent = 0);
+    ~CGlobal();
 
     bool safeToClose(int idx = -1);
 
@@ -27,6 +33,8 @@ public slots:
 };
 
 extern CGlobal* cgl;
+
+void stdConsoleOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg);
 
 QString getOpenFileNameD ( QWidget * parent = 0, const QString & caption = QString(),
                            const QString & dir = QString(), const QString & filter = QString(),
