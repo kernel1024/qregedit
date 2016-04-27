@@ -616,7 +616,7 @@ CValue parseValueStr(const QString& s)
         v = CValue(REG_DWORD);
         val.remove(0,val.indexOf(':')+1);
         bool ok;
-        v.vDWORD = val.toInt(&ok,16);
+        v.vDWORD = val.toUInt(&ok,16);
         if (!ok) {
             qCritical() << "parseValueStr: incorrect hex dword value for " << v.name;
             return CValue();
@@ -665,9 +665,6 @@ CValue parseValueStr(const QString& s)
 
 bool CRegController::importReg(struct hive *hdesc, const QString &filename)
 {
-/*    QString fname = filename;
-    QString prefix = getHivePrefix(hdesc);
-    return (import_reg(hdesc, fname.toUtf8().data(),prefix.toUtf8().data())==0);*/
     QFile f(filename);
     if (!f.open(QIODevice::ReadOnly)) {
         qCritical() << "importReg: failed to open file" << filename;
@@ -730,6 +727,7 @@ bool CRegController::importReg(struct hive *hdesc, const QString &filename)
             valacc.clear();
         }
     }
+    f.close();
 
     return true;
 
@@ -815,7 +813,7 @@ bool CRegController::setValue(struct hive *hdesc, struct nk_key* key, const CVal
 
     if (newkv!=NULL) {
         bool res = put_buf2val(hdesc,newkv,cgl->reg->getKeyOfs(hdesc,key),
-                               value.name.toUtf8().data(),value.type,TPF_VK_EXACT)!=0;
+                               value.name.toUtf8().data(),value.type,TPF_VK_EXACT)>=0;
         FREE(newkv);
         return res;
     }

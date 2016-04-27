@@ -51,7 +51,7 @@ void CFinder::continueSearch()
     QThread::msleep(250);
 
     bool iok;
-    quint32 snum = searchString.toInt(&iok);
+    quint32 snum = searchString.toUInt(&iok);
 
     while (true) {
         searchLastKeyIdx++;

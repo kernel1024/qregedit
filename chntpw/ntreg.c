@@ -3149,7 +3149,7 @@ struct keyval *get_class(struct hive *hdesc,
  * otherwise allocate new dataspace, then free the old
  * Thus enough space to hold both new and old data is needed
  * Pass inn buffer with data len as first DWORD (as routines above)
- * returns: 0 - error, len - OK (len of data)
+ * returns: less than 0 - error, len - OK (len of data)
  */
 
 int put_buf2val(struct hive *hdesc, struct keyval *kv,
@@ -3160,11 +3160,11 @@ int put_buf2val(struct hive *hdesc, struct keyval *kv,
   struct db_key *db;
   int copylen, blockofs, blocksize, restlen, point, i, list, parts;
 
-  if (!kv) return(0);
+  if (!kv) return(-1);
 
 
   l = get_val_len(hdesc, vofs, path, exact);
-  if (l == -1) return(0);  /* error */
+  if (l == -1) return(-2);  /* error */
   //  fprintf(stderr,"put_buf2val: l = %d\n",l);
 
   //  fprintf(stderr,"put_buf2val: %s, kv len = %d, l = %d\n",path,kv->len,l);
@@ -3173,14 +3173,14 @@ int put_buf2val(struct hive *hdesc, struct keyval *kv,
   if (kv->len != l) {  /* Realloc data block if not same size as existing */
     if (!alloc_val_data(hdesc, vofs, path, kv->len, exact)) {
       fprintf(stderr,"put_buf2val: %s : alloc_val_data failed!\n",path);
-      return(0);
+      return(-3);
     }
   }
 
   keydataptr = get_val_data(hdesc, vofs, path, type, exact);
   if (!keydataptr) {
       fprintf(stderr,"put_buf2val: %s : get_val_data failed!\n",path);
-      return(0); /* error */
+      return(-4); /* error */
   }
 
 
