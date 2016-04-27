@@ -14,7 +14,6 @@
 #include "ui_mainwindow.h"
 
 // TODO: SAM interactive editor
-// TODO: SOFTWARE interactive editor
 
 CMainWindow::CMainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -89,9 +88,19 @@ CMainWindow::CMainWindow(QWidget *parent) :
         deleteValue(ui->tableValues->currentIndex());
     });
 
+    QStringList errors;
     QStringList args = QApplication::arguments();
     for (int i=1;i<args.count();i++)
-        cgl->reg->openTopHive(args.at(i), HMODE_RW);
+        if (!cgl->reg->openTopHive(args.at(i), HMODE_RW))
+            errors << args.at(i);
+
+    if (!errors.isEmpty()) {
+        QTimer::singleShot(2500,[errors](){
+            QString msg = tr("Failed to open hives:\n");
+            msg.append(errors.join('\n'));
+            QMessageBox::critical(QApplication::activeWindow(),tr("Registry Editor - Error"),msg);
+        });
+    }
 }
 
 CMainWindow::~CMainWindow()
@@ -144,7 +153,7 @@ void CMainWindow::openHive()
     QString fname = getOpenFileNameD(this,tr("Open registry hive"));
     if (!fname.isEmpty())
         if (!cgl->reg->openTopHive(fname, mode))
-            QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to open hive file.\n"
+            QMessageBox::critical(this,tr("Registry Editor - Error"),tr("Failed to open hive file.\n"
                                                                 "See log messages for debug messages."));
 }
 
@@ -156,12 +165,12 @@ void CMainWindow::importReg()
     QString fname = getOpenFileNameD(this,tr("Import REG file to selected hive"));
     if (!fname.isEmpty()) {
         if (!cgl->reg->importReg(cgl->reg->getHivePtr(idx), fname))
-            QMessageBox::critical(this,tr("Registry Editor"),
+            QMessageBox::critical(this,tr("Registry Editor - Error"),
                                   tr("Failed to import file. See log for error messages.\n"
                                      "Please, do not save hive %1!")
                                   .arg(cgl->reg->getHivePrefix(cgl->reg->getHivePtr(idx))));
         else
-            QMessageBox::information(this,tr("Registry Editor"),
+            QMessageBox::information(this,tr("Registry Editor - Import"),
                                      tr("Registry file import successfull.\n"
                                         "Hive %1 modified.")
                                      .arg(cgl->reg->getHivePrefix(cgl->reg->getHivePtr(idx))));
@@ -246,9 +255,9 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
                                              tr("Registry files (*.reg)"));
             if (!fname.isEmpty()) {
                 if (!treeModel->exportKey(idx,fname))
-                    QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to export selected key."));
+                    QMessageBox::critical(this,tr("Registry Editor - Error"),tr("Failed to export selected key."));
                 else
-                    QMessageBox::information(this,tr("Registry Editor"),
+                    QMessageBox::information(this,tr("Registry Editor - Export"),
                                              tr("Registry key exported successfully."));
             }
         });
@@ -257,11 +266,22 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
         acm = cm->addAction(tr("Find..."));
         connect(acm,&QAction::triggered,[this,idx](){
             bool ok;
-            QString s = QInputDialog::getText(this,tr("Registry Editor"),
+            QString s = QInputDialog::getText(this,tr("Registry Editor - Search"),
                                                      tr("Search text"),QLineEdit::Normal,QString(),&ok);
             if (ok && !s.isEmpty())
                 emit startSearch(idx,s);
         });
+
+        struct hive *h = cgl->reg->getHivePtr(hive);
+        if (h!=NULL && h->type==HTYPE_SOFTWARE) {
+            cm->addSeparator();
+            acm = cm->addAction(tr("Show OS info..."));
+            connect(acm,&QAction::triggered,[this,h](){
+                QString info = cgl->reg->getOSInfo(h);
+                if (!info.isEmpty())
+                    QMessageBox::information(this,tr("Registry Editor - OS info"), info);
+            });
+        }
     }
 
     cm->addSeparator();
@@ -304,7 +324,7 @@ void CMainWindow::valuesCtxMenu(const QPoint &pos)
         connect(acm,&QAction::triggered,[this,name,idx](){
             QString s = name;
             bool ok;
-            s = QInputDialog::getText(this,tr("Registry Editor"),
+            s = QInputDialog::getText(this,tr("Registry Editor - Value rename"),
                                                      tr("Rename registry value"),QLineEdit::Normal,s,&ok);
             if (ok && !s.isEmpty())
                 valuesModel->renameValue(idx,s);
@@ -336,17 +356,17 @@ void CMainWindow::createEntry()
     QModelIndex idx = ui->treeHives->currentIndex();
 
     if (type==-1 && idx.isValid()) {
-        QString name = QInputDialog::getText(this,tr("Registry Editor"),tr("New key name"));
+        QString name = QInputDialog::getText(this,tr("Registry Editor - New key"),tr("New key name"));
         if (!name.isEmpty())
             if (!treeModel->createKey(idx,name))
-                QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to create new key."));
+                QMessageBox::critical(this,tr("Registry Editor - Error"),tr("Failed to create new key."));
 
     } else if (type>REG_NONE && type<REG_MAX) {
         CValueEditor* dlg = new CValueEditor(this,type,QModelIndex());
         if (!dlg->initFailed()) {
             if (dlg->exec()==QDialog::Accepted)
                 if (!valuesModel->createValue(dlg->getValue()))
-                    QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to create new value."));
+                    QMessageBox::critical(this,tr("Registry Editor - Error"),tr("Failed to create new value."));
         }
 
         dlg->deleteLater();
@@ -382,7 +402,7 @@ void CMainWindow::searchTxt()
     if (!idx.isValid()) return;
 
     bool ok;
-    QString s = QInputDialog::getText(this,tr("Registry Editor"),
+    QString s = QInputDialog::getText(this,tr("Registry Editor - Search"),
                                              tr("Search text"),QLineEdit::Normal,QString(),&ok);
     if (ok && !s.isEmpty())
         emit startSearch(idx,s);
@@ -390,7 +410,7 @@ void CMainWindow::searchTxt()
 
 void CMainWindow::searchFinished()
 {
-    QMessageBox::information(this,tr("Registry Editor"),tr("Search completed."));
+    QMessageBox::information(this,tr("Registry Editor - Search"),tr("Search completed."));
 }
 
 void CMainWindow::deleteValue(const QModelIndex &value)
@@ -399,6 +419,6 @@ void CMainWindow::deleteValue(const QModelIndex &value)
     QString name = valuesModel->getValueName(value);
 
     if (!valuesModel->deleteValue(value))
-        QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to delete value '%1'.")
+        QMessageBox::critical(this,tr("Registry Editor - Error"),tr("Failed to delete value '%1'.")
                               .arg(name));
 }

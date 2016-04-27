@@ -83,7 +83,7 @@ void CValueEditor::saveValue()
 
     if (m_createType==REG_NONE)
         if (!cgl->reg->valuesModel->setValue(valueIndex,m_value)) {
-            QMessageBox::critical(this,tr("Registry Editor"),tr("Failed to change value '%1'.")
+            QMessageBox::critical(this,tr("Registry Editor - Error"),tr("Failed to change value '%1'.")
                                   .arg(m_value.name));
             return;
         }

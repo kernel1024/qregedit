@@ -27,6 +27,7 @@ public:
     struct vex_data m_vex;
     CValue();
     CValue(int atype);
+    CValue(const QString& aname, int atype);
     CValue(struct vex_data vex, const QString &str, const QByteArray &data);
     CValue &operator=(const CValue& other);
     bool operator==(const CValue& ref) const;
@@ -73,6 +74,7 @@ public:
     bool importReg(struct hive *hdesc, const QString& filename);
 
     QVariant getValue(struct hive *hdesc, struct vex_data vex, int forceHex);
+    CValue getValue(struct hive *hdesc, struct nk_key *key, const QString& name, int checkType = REG_NONE);
     QList<CValue> listValues(struct hive *hdesc, struct nk_key *key);
     struct keyval *getKeyValue(struct hive *hdesc, struct keyval *kv, struct vex_data vex,
                                int type, int exact);
@@ -85,6 +87,7 @@ public:
     QString getHivePrefix(struct hive *hdesc);
     int findKeyOfs(struct hive *hdesc, struct nk_key *key, const QString &name);
     struct nk_key *navigateKey(struct hive *hdesc, const QString &path, bool allowCreate=false);
+    QString getOSInfo(struct hive *hdesc);
 signals:
     void hiveOpened(int idx);
     void hiveClosed(int old_idx);

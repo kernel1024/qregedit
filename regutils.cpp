@@ -4,6 +4,7 @@
 #include <QApplication>
 #include <QMessageBox>
 #include <QTextCodec>
+#include <QDateTime>
 #include <QDebug>
 
 CRegController::CRegController(QObject *parent)
@@ -61,7 +62,7 @@ bool CRegController::saveTopHive(int idx)
     if ((h->state & HMODE_DIRTY) == 0)
         return true;
     else {
-        int ret = QMessageBox::warning(0,tr("Registry Editor"),
+        int ret = QMessageBox::warning(0,tr("Registry Editor - Save hive"),
                                        tr("Hive file '%1' has been modified. "
                                           "Do you want to save hive?").arg(h->filename),
                                        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
@@ -73,7 +74,7 @@ bool CRegController::saveTopHive(int idx)
     }
 
     if (h->state & HMODE_DIDEXPAND) {
-        int ret = QMessageBox::warning(0,tr("Registry Editor"),
+        int ret = QMessageBox::warning(0,tr("Registry Editor - Save hive"),
                                        tr("Hive file '%1' has been expanded. "
                                           "This is highly experimental feature!\n"
                                           "Please, use backups and use this feature at own risk!\n\n"
@@ -90,7 +91,7 @@ bool CRegController::saveTopHive(int idx)
         emit hiveSaved(idx);
         return true;
     } else {
-        QMessageBox::warning(0,tr("Registry Editor"),
+        QMessageBox::warning(0,tr("Registry Editor - Error"),
                              tr("Failed to save hive file '%1'.").arg(h->filename));
         return false;
     }
@@ -435,6 +436,28 @@ QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, int f
     return res;
 }
 
+CValue CRegController::getValue(hive *hdesc, nk_key *key, const QString &name, int checkType)
+{
+    QList<CValue> vl = listValues(hdesc, key);
+    int idx = -1;
+
+    if (checkType>REG_NONE)
+        idx = vl.indexOf(CValue(name, checkType));
+    else {
+        for (int i=0;i<vl.count();i++)
+            if (vl.at(i).name==name) {
+                idx = i;
+                break;
+            }
+    }
+
+    if (idx<0) {
+        qWarning() << tr("Could not find %1 value in %2 key").arg(name,getKeyName(hdesc, key));
+        return CValue();
+    }
+    return vl.at(idx);
+}
+
 
 QString CRegController::getKeyFullPath(struct hive *hdesc, struct nk_key *key, bool skipRoot)
 {
@@ -572,6 +595,60 @@ struct nk_key* CRegController::navigateKey(struct hive *hdesc, const QString &pa
     }
 
     return key;
+}
+
+QString CRegController::getOSInfo(struct hive *hdesc)
+{
+    struct nk_key *key = navigateKey(hdesc,"\\Microsoft\\Windows NT\\CurrentVersion");
+    if (key==NULL) {
+        qWarning() << "\\Microsoft\\Windows NT\\CurrentVersion key not found. This is not SOFTWARE hive?";
+        return QString("\\Microsoft\\Windows NT\\CurrentVersion key not found. This is not SOFTWARE hive?");
+    }
+    CValue csd = getValue(hdesc, key, "CSDVersion", REG_SZ);
+    CValue ver = getValue(hdesc, key, "CurrentVersion", REG_SZ);
+    CValue prod = getValue(hdesc, key, "ProductName", REG_SZ);
+    CValue date = getValue(hdesc, key, "InstallDate", REG_DWORD);
+    CValue id = getValue(hdesc, key, "ProductId", REG_SZ);
+    CValue build = getValue(hdesc, key, "CurrentBuildNumber", REG_SZ);
+
+    QDateTime idate = QDateTime::fromTime_t(date.vDWORD);
+
+    QString dpids;
+    CValue dpid = getValue(hdesc, key, "DigitalProductId", REG_BINARY);
+    if (dpid.isEmpty() || dpid.vOther.size()<67) {
+        qWarning() << "DigitalProductID value is too short for decoding";
+        dpids = tr("(failed to decode)");
+    } else {
+        const char digits[] = {'B','C','D','F','G','H','J','K',
+                               'M','P','Q','R','T','V','W','X',
+                               'Y','2','3','4','6','7','8','9'};
+
+        const int result_len = 24;
+        const int start_offset = 52;
+        const int buf_len = 15;
+        QByteArray buf = dpid.vOther.mid(start_offset,buf_len);
+
+        for (int i = result_len; i >= 0; i--) {
+            unsigned int x = 0;
+
+            for (int j = buf_len - 1; j >= 0; j--) {
+                x = (x << 8) + (quint8)buf.at(j);
+                buf[j] = (quint8)(x / 24);
+                x = x % 24;
+            }
+            dpids.prepend(QChar(digits[x]));
+            if ((i%5==0) && (i>0))
+                dpids.prepend(QChar('-'));
+        }
+    }
+
+    return QString("%1 %2 (Version %3.%4)\n\n"
+                   "Install date: %5\n\n"
+                   "Product ID: %6\n"
+                   "Digital Product ID: %7")
+            .arg(prod.vString, csd.vString, ver.vString, build.vString)
+            .arg(idate.toString(Qt::DefaultLocaleLongDate))
+            .arg(id.vString, dpids);
 }
 
 QString unquoteString(const QString& s)
@@ -846,6 +923,15 @@ CValue::CValue()
 CValue::CValue(int atype)
 {
     name.clear();
+    type = atype;
+    vDWORD = 0;
+    vString.clear();
+    vOther.clear();
+}
+
+CValue::CValue(const QString &aname, int atype)
+{
+    name = aname;
     type = atype;
     vDWORD = 0;
     vString.clear();
