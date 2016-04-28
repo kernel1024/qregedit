@@ -10,6 +10,7 @@
 #include <QDebug>
 
 CRegistryModel::CRegistryModel()
+    : QAbstractItemModel()
 {
     cgl->reg->treeModel = this;
 
@@ -291,6 +292,7 @@ void CRegistryModel::finderKeyFound(struct hive *hdesc, struct nk_key *key, cons
 }
 
 CValuesModel::CValuesModel()
+    : QAbstractTableModel()
 {
     cgl->reg->valuesModel = this;
     key_ofs = -1;

@@ -16,7 +16,10 @@ SOURCES += main.cpp\
     functions.cpp \
     progressdialog.cpp \
     finder.cpp \
-    logdisplay.cpp
+    logdisplay.cpp \
+    chntpw/chntpw.c \
+    chntpw/libsam.c \
+    sammodel.cpp
 
 HEADERS  += mainwindow.h \
     chntpw/ntreg.h \
@@ -28,7 +31,10 @@ HEADERS  += mainwindow.h \
     functions.h \
     progressdialog.h \
     finder.h \
-    logdisplay.h
+    logdisplay.h \
+    chntpw/sam.h \
+    chntpw/chntpw.h \
+    sammodel.h
 
 FORMS    += mainwindow.ui \
     valueeditor.ui \
@@ -42,5 +48,12 @@ OTHER_FILES += \
 
 RESOURCES += \
     qregedit.qrc
+
+CONFIG += lanman_crypto
+
+lanman_crypto {
+    DEFINES += DOCRYPTO=1
+    PKGCONFIG += openssl
+}
 
 include( qhexedit2/qhexedit.pri )

@@ -6,6 +6,7 @@
 #include <QCloseEvent>
 #include <QSortFilterProxyModel>
 #include "registrymodel.h"
+#include "sammodel.h"
 #include "progressdialog.h"
 
 namespace Ui {
@@ -25,6 +26,8 @@ private:
     Ui::MainWindow *ui;
     CRegistryModel *treeModel;
     CValuesModel *valuesModel;
+    CSAMGroupsModel *groupsModel;
+    CSAMUsersModel *usersModel;
     QSortFilterProxyModel *valuesSortModel;
     CProgressDialog *searchProgressDialog;
     void treeCtxMenuPrivate(const QPoint& pos, const bool fromValuesTable);

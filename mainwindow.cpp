@@ -13,8 +13,6 @@
 #include "logdisplay.h"
 #include "ui_mainwindow.h"
 
-// TODO: SAM interactive editor
-
 CMainWindow::CMainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
@@ -28,11 +26,15 @@ CMainWindow::CMainWindow(QWidget *parent) :
 
     treeModel = new CRegistryModel();
     valuesModel = new CValuesModel();
+    groupsModel = new CSAMGroupsModel();
+    usersModel = new CSAMUsersModel();
 
     valuesSortModel = new QSortFilterProxyModel(this);
     valuesSortModel->setSourceModel(valuesModel);
     ui->treeHives->setModel(treeModel);
     ui->tableValues->setModel(valuesSortModel);
+    ui->treeGroups->setModel(groupsModel);
+    ui->tableUsers->setModel(usersModel);
 
     ui->treeHives->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->tableValues->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -87,6 +89,8 @@ CMainWindow::CMainWindow(QWidget *parent) :
     connect(sc,&QShortcut::activated,[this](){
         deleteValue(ui->tableValues->currentIndex());
     });
+
+    ui->tabSAM->hide();
 
     QStringList errors;
     QStringList args = QApplication::arguments();
@@ -182,6 +186,19 @@ void CMainWindow::importReg()
 void CMainWindow::showValues(const QModelIndex &key)
 {
     valuesModel->keyChanged(key, ui->tableValues);
+
+    int idx = treeModel->getHiveIdx(ui->treeHives->currentIndex());
+    bool vis = false;
+    if (idx>=0) {
+        struct hive *h = cgl->reg->getHivePtr(idx);
+        vis = (h->type==HTYPE_SAM);
+    }
+    if (vis) {
+        ui->tabSAM->show();
+        groupsModel->keyChanged(key,ui->treeGroups);
+        usersModel->keyChanged(key,ui->tableUsers);
+    } else
+        ui->tabSAM->hide();
 }
 
 void CMainWindow::hivePrepareClose(int idx)
@@ -250,6 +267,7 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
             QApplication::clipboard()->setText(treeModel->getKeyName(idx));
         });
         acm = cm->addAction(tr("Export..."));
+        acm->setEnabled(cgl->reg->getHivePtr(hive)->type!=HTYPE_SAM);
         connect(acm,&QAction::triggered,[this,idx](){
             QString fname = getSaveFileNameD(this,tr("Export registry"),QString(),
                                              tr("Registry files (*.reg)"));

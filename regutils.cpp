@@ -143,7 +143,7 @@ QStringList CRegController::listKeys(struct hive *hdesc, struct nk_key *key)
     return keys;
 }
 
-QList<CValue> CRegController::listValues(struct hive *hdesc, struct nk_key *key)
+QList<CValue> CRegController::listValues(struct hive *hdesc, struct nk_key *key, int exact)
 {
     int nkofs;
     int count = 0;
@@ -161,7 +161,7 @@ QList<CValue> CRegController::listValues(struct hive *hdesc, struct nk_key *key)
     if (key->no_values) {
         while ((ex_next_v(hdesc, nkofs, &count, &vex) > 0)) {
             QString str;
-            QVariant v = getValue(hdesc, vex, false);
+            QVariant v = getValue(hdesc, vex, false, exact);
             if (v.isNull()) {
                 FREE(vex.name);
                 continue;
@@ -390,7 +390,7 @@ struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct keyval *kv
     return(kr);
 }
 
-QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, int forceHex)
+QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, int forceHex, int exact)
 {
     void *data;
     int len,i,type;
@@ -401,7 +401,7 @@ QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, int f
     type = vex.type;
     len = vex.size;
 
-    kv = getKeyValue(hdesc, NULL, vex, 0, TPF_VK);
+    kv = getKeyValue(hdesc, NULL, vex, 0, exact);
 
     if (!kv) {
         qCritical() << "Value - could not fetch data" << vex.name;
@@ -412,6 +412,11 @@ QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, int f
 
     if (forceHex)
         type = REG_BINARY;
+
+    if ((quint32)(vex.vk->len_data) == 0x80000000 && (exact & TPF_VK_SHORT)) {
+        /* Special inline case (len = 0x80000000) */
+        type = REG_DWORD;
+    }
 
     switch (type) {
         case REG_SZ:
@@ -651,6 +656,157 @@ QString CRegController::getOSInfo(struct hive *hdesc)
             .arg(id.vString, dpids);
 }
 
+QList<CUser> CRegController::listUsers(struct hive* hdesc)
+{
+    QList<CUser> res;
+
+    char SAMdaunPATH[] = "\\SAM\\Domains\\Account\\Users\\Names\\";
+
+    int rid;
+    int ntpw_len;
+
+    struct keyval *m = NULL;
+    unsigned int *grps;
+    int count = 0, isadmin = 0;
+
+    unsigned short acb;
+
+    struct user_V *vpwd;
+
+    if (hdesc->type != HTYPE_SAM) {
+        qWarning() << "This is not SAM hive";
+        return res;
+    }
+    struct nk_key *key = navigateKey(hdesc,SAMdaunPATH);
+    if (!checkKey(key)) {
+        qWarning() << SAMdaunPATH << " key not found. This is not SAM hive?";
+        return res;
+    }
+
+    QStringList ul = listKeys(hdesc, key);
+    foreach (const QString username, ul) {
+        rid = -1;
+
+        // Extract the value out of the username-key, value is RID
+        struct nk_key *ukey = navigateKey(hdesc,SAMdaunPATH+username);
+        if (!checkKey(ukey)) {
+            qWarning() << " Could not navigate to SAM username key for user: " << username;
+            continue;
+        }
+        QList<CValue> vl = listValues(hdesc, ukey, TPF_VK_EXACT | TPF_VK_SHORT);
+        for (int i=0;vl.count();i++) {
+            if (vl.at(i).name==QString("@")) {
+                rid = vl.at(i).type;
+                break;
+            }
+        }
+        if (rid<0) continue;
+
+        // Now that we have the RID, build the path to, and get the V-value
+        QString keynm = QString("\\SAM\\Domains\\Account\\Users\\") +
+                        QString("%1").arg((quint16)rid,8,16,QChar('0')).toUpper();
+        ukey = navigateKey(hdesc,keynm);
+        if (!checkKey(ukey)) {
+            qWarning() << " Could not navigate to SAM username key for user: " << username << keynm;
+            continue;
+        }
+        vl = listValues(hdesc, ukey, TPF_VK_EXACT | TPF_VK_SHORT);
+        int vidx = vl.indexOf(CValue("V",REG_BINARY));
+        if (vidx<0) {
+            qWarning() << " Could not locate V-key in SAM for user: " << username << keynm;
+            continue;
+
+        }
+        CValue v = vl.at(vidx);
+
+        if (v.vOther.length() < 0xcc) {
+            qWarning() << tr("V-value for user <%1> (rid: %2) is too short (only %3 bytes)"
+                             "to be a SAM user V-struct!")
+                          .arg(username).arg(rid).arg(v.vOther.size());
+        } else {
+
+            vpwd = (struct user_V *)v.vOther.data();
+            ntpw_len = vpwd->ntpw_len;
+
+            acb = sam_handle_accountbits(hdesc, rid, 0);
+
+            // check user's groups
+            m = sam_get_user_grpids(hdesc, rid);
+            QList<int> groups;
+            groups.clear();
+            if (m) {
+                grps = (unsigned int *)&m->data;
+                count = m->len >> 2;
+                for (int i = 0; i < count; i++) {
+                    if (grps[i] == 0x220) isadmin = 1;
+                    groups << grps[i];
+                }
+                free(m);
+            }
+
+            CUser us = CUser(rid, username, isadmin, (acb & 0x8000), (ntpw_len<16));
+            us.groupIDs.append(groups);
+
+            int vlen = v.vOther.size();
+
+            int username_offset = vpwd->username_ofs;
+            int username_len    = vpwd->username_len;
+            int fullname_offset = vpwd->fullname_ofs;
+            int fullname_len    = vpwd->fullname_len;
+            int comment_offset  = vpwd->comment_ofs;
+            int comment_len     = vpwd->comment_len;
+            int homedir_offset  = vpwd->homedir_ofs;
+            int homedir_len     = vpwd->homedir_len;
+            int profile_offset  = vpwd->profilep_ofs;
+            int profile_len     = vpwd->profilep_len;
+            int drvletter_offset = vpwd->drvletter_ofs;
+            int drvletter_len   = vpwd->drvletter_len;
+            int logonscr_offset = vpwd->logonscr_ofs;
+            int logonscr_len    = vpwd->logonscr_len;
+
+            if(username_len <= 0 || username_len > vlen ||
+                    comment_len < 0 || comment_len > vlen   ||
+                    fullname_len < 0 || fullname_len > vlen ||
+                    homedir_len < 0 || homedir_len > vlen ||
+                    profile_len < 0 || profile_len > vlen ||
+                    drvletter_len < 0 || drvletter_len > vlen ||
+                    logonscr_len < 0 || logonscr_len > vlen ||
+                    username_offset <= 0 || username_offset >= vlen ||
+                    fullname_offset < 0 || fullname_offset >= vlen ||
+                    comment_offset < 0 || comment_offset >= vlen ||
+                    homedir_offset < 0 || homedir_offset >= vlen ||
+                    profile_offset < 0 || profile_offset >= vlen ||
+                    drvletter_offset < 0 || drvletter_offset >= vlen ||
+                    logonscr_offset < 0 || logonscr_offset >= vlen)
+            {
+                qCritical() << "getUserInfo: Not a legal V struct? (negative struct lengths)";
+            } else {
+
+                // Offsets in top of struct is relative to end of pointers, adjust
+                username_offset += 0xCC;
+                fullname_offset += 0xCC;
+                comment_offset += 0xCC;
+                homedir_offset += 0xCC;
+                profile_offset += 0xCC;
+                drvletter_offset += 0xCC;
+                logonscr_offset += 0xCC;
+
+                // leave username as from V-key name
+                us.fullname = fromUtf16(v.vOther.mid(fullname_offset,fullname_len));
+                us.comment  = fromUtf16(v.vOther.mid(comment_offset,comment_len));
+                us.homeDir  = fromUtf16(v.vOther.mid(homedir_offset,homedir_len));
+                us.profilePath = fromUtf16(v.vOther.mid(profile_offset,profile_len));
+                us.driveLetter = fromUtf16(v.vOther.mid(drvletter_offset,drvletter_len));
+                us.logonScript = fromUtf16(v.vOther.mid(logonscr_offset,logonscr_len));
+            }
+
+            res << us;
+        }
+    }
+
+    return res;
+}
+
 QString unquoteString(const QString& s)
 {
     QString a = s;
@@ -854,7 +1010,7 @@ QString CRegController::getValueTypeStr(int type)
     if (type>=REG_NONE && type<REG_MAX)
         return QString(val_types[type]);
     else
-        return QString();
+        return QString("REG_UNKNOWN (0x%1)").arg((quint16)type,0,16);
 }
 
 bool CRegController::setValue(struct hive *hdesc, struct nk_key* key, const CValue &value)
@@ -978,4 +1134,177 @@ bool CValue::isEmpty() const
 bool CValue::isDefault() const
 {
     return ((name.isEmpty() || name==QString("@")) && !isEmpty());
+}
+
+CUser::CUser()
+{
+    rid = 0;
+    username.clear();
+    is_admin = false;
+    is_locked = false;
+    is_blank_pw = false;
+    fullname.clear();
+    comment.clear();
+    homeDir.clear();
+    profilePath.clear();
+    driveLetter.clear();
+    logonScript.clear();
+    groupIDs.clear();
+}
+
+CUser::CUser(int arid, const QString &ausername, bool admin, bool locked, bool blank_pw)
+{
+    rid = arid;
+    username = ausername;
+    is_admin = admin;
+    is_locked = locked;
+    is_blank_pw = blank_pw;
+    fullname.clear();
+    comment.clear();
+    homeDir.clear();
+    profilePath.clear();
+    driveLetter.clear();
+    logonScript.clear();
+    groupIDs.clear();
+}
+
+//CUser::CUser(int arid, const QString& ausername, bool admin, bool locked, bool blank_pw,
+//             const QString &afullname, const QString &acomment, const QString &ahomedir,
+//             const QString &aprofilePath, const QString &adriveLetter, const QString &alogonScript)
+//{
+//    rid = arid;
+//    username = ausername;
+//    is_admin = admin;
+//    is_locked = locked;
+//    is_blank_pw = blank_pw;
+//    fullname = afullname;
+//    comment = acomment;
+//    homeDir = ahomedir;
+//    profilePath = aprofilePath;
+//    driveLetter = adriveLetter;
+//    logonScript = alogonScript;
+//    groupIDs.clear();
+//}
+
+CUser &CUser::operator=(const CUser &other)
+{
+    rid = other.rid;
+    username = other.username;
+    is_admin = other.is_admin;
+    is_locked = other.is_locked;
+    is_blank_pw = other.is_blank_pw;
+    fullname = other.fullname;
+    comment = other.comment;
+    homeDir = other.homeDir;
+    profilePath = other.profilePath;
+    driveLetter = other.driveLetter;
+    logonScript = other.logonScript;
+    groupIDs.clear();
+    groupIDs.append(other.groupIDs);
+
+    return *this;
+}
+
+bool CUser::operator==(const CUser &ref) const
+{
+    return ((rid==ref.rid) && (username==ref.username));
+}
+
+bool CUser::operator!=(const CUser &ref) const
+{
+    return !operator ==(ref);
+}
+
+bool CUser::isEmpty() const
+{
+    return (rid==0);
+}
+
+CGroup::CGroup()
+{
+    grpid = -1;
+    name.clear();
+    fullname.clear();
+    members = NULL;
+}
+
+CGroup::~CGroup()
+{
+    if (members!=NULL)
+        sam_free_sid_array(members);
+
+    members=NULL;
+}
+
+CGroup::CGroup(int id, const QString &aname, const QString &afullname)
+{
+    grpid = id;
+    name = aname;
+    fullname = afullname;
+    members = NULL;
+}
+
+CGroup &CGroup::operator=(const CGroup &other)
+{
+    grpid = other.grpid;
+    name = other.name;
+    fullname = other.fullname;
+
+/*    if (members)
+        sam_free_sid_array(members);
+
+    CREATE(members, struct sid_array, 1);
+    members[0].len = 0;
+    members[0].sidptr = NULL;
+
+    // copy members
+    int num = 0;
+    while (other.members[num].sidptr) {
+        ALLOC(members[], 1, other.members[num].len);
+        memcpy()
+
+
+
+      free(array[num].sidptr);
+      num++;
+    }
+
+
+    while (size > 0) {
+
+      sidlen = sidbuf->sections * 4 + 8;
+
+      // printf("make_sid_array: sidlen = %d\n",sidlen);
+
+      ALLOC(sb, 1, sidlen);
+      memcpy(sb, sidbuf, sidlen);
+      array[num].len = sidlen;
+      array[num].sidptr = sb;
+      sidbuf = (void *)sidbuf + sidlen;
+      size -= sidlen;
+      num++;
+
+      array = realloc(array, (num + 1) * sizeof(struct sid_array));
+      array[num].len = 0;
+      array[num].sidptr = NULL;
+
+    }*/
+
+
+    return *this;
+}
+
+bool CGroup::operator==(const CGroup &ref) const
+{
+    return (grpid==ref.grpid && name==ref.name);
+}
+
+bool CGroup::operator!=(const CGroup &ref) const
+{
+    return !operator ==(ref);
+}
+
+bool CGroup::isEmpty() const
+{
+    return (grpid<0 && name.isEmpty());
 }
