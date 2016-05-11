@@ -504,7 +504,8 @@ int sam_put_grp_members_sid(struct hive *hdesc, int grp, struct sid_array *sarra
     grpnamoffs = cd->grpname_ofs + 0x34;
     grpnamlen  = cd->grpname_len;
     
-    cheap_uni2ascii((char *)cd + grpnamoffs, groupname, grpnamlen);
+    //cheap_uni2ascii((char *)cd + grpnamoffs, groupname, grpnamlen);
+    ucs2utf8((char*)cd + grpnamoffs, groupname, grpnamlen);
     
     if (gverbose) printf("put_grp_members_sid: group %x named %s has %d members\n",grp,groupname,cd->grp_members);
 
@@ -1244,8 +1245,9 @@ int sam_list_user_groups(struct hive *hdesc, int rid, int check)
 	grpnamoffs = cd->grpname_ofs + 0x34;
 	grpnamlen  = cd->grpname_len;
 	
-	cheap_uni2ascii((char *)cd + grpnamoffs, groupname, grpnamlen);
-	
+    //cheap_uni2ascii((char *)cd + grpnamoffs, groupname, grpnamlen);
+    ucs2utf8((char *)cd + grpnamoffs, groupname, grpnamlen);
+
 	printf("= %s (which has %d members)\n",groupname,cd->grp_members);
 
 	//	get_grp_members_sid(grp, &sidbuf);
@@ -1407,10 +1409,11 @@ char *sam_get_username(struct hive *hdesc, int rid)
   /* Offsets in top of struct is relative to end of pointers, adjust */
    username_offset += 0xCC;
    
-   ALLOC(username, 2, (username_len >> 1) + 4);
+   ALLOC(username, 2, ucs2utf8((char*)(vp + username_offset),NULL,username_len)+4);
    *username = 0;
-   cheap_uni2ascii(vp + username_offset,username,username_len);
-   
+   //cheap_uni2ascii(vp + username_offset,username,username_len);
+   ucs2utf8((char*)(vp + username_offset),username,username_len);
+
    if (gverbose) {
      printf("RID     : %04d [%04x]\n",rid,rid);
      printf("Username: %s\n",username);
@@ -1558,8 +1561,9 @@ void sam_list_groups(struct hive *hdesc, int listmembers, int human) {
 	grpnamoffs = cd->grpname_ofs + 0x34;
 	grpnamlen  = cd->grpname_len;
 	
-	cheap_uni2ascii((char *)cd + grpnamoffs, groupname, grpnamlen);
-	
+    //cheap_uni2ascii((char *)cd + grpnamoffs, groupname, grpnamlen);
+    ucs2utf8((char *)cd + grpnamoffs, groupname, grpnamlen);
+
 	if (human) printf("=== Group #%4x : %s\n",grp,groupname);
 	else if (!listmembers) printf("%x:%s:%d\n",grp,groupname,cd->grp_members);
 	
@@ -1616,10 +1620,11 @@ char *sam_get_groupname(struct hive *hdesc, int grpid)
   grpnamoffs = cd->grpname_ofs + 0x34;
   grpnamlen  = cd->grpname_len;
   
-  ALLOC(groupname, 2, (grpnamlen >> 1) + 4);
+  ALLOC(groupname, 2, ucs2utf8((char *)cd + grpnamoffs, NULL, grpnamlen) + 4);
   *groupname = 0;
-  cheap_uni2ascii((char *)cd + grpnamoffs, groupname, grpnamlen);
-  
+  //cheap_uni2ascii((char *)cd + grpnamoffs, groupname, grpnamlen);
+  ucs2utf8((char *)cd + grpnamoffs, groupname, grpnamlen);
+
   // printf("==== Group #%4x : %s\n",grpid,groupname);
   
   FREE(value);
@@ -1703,9 +1708,11 @@ int sam_reset_pw(struct hive *hdesc, int rid)
    ntpw_offs += 0xCC;
    lmpw_offs += 0xCC;
    
-   cheap_uni2ascii(vp + username_offset,username,username_len);
-   cheap_uni2ascii(vp + fullname_offset,fullname,fullname_len);
-   
+   //cheap_uni2ascii(vp + username_offset,username,username_len);
+   //cheap_uni2ascii(vp + fullname_offset,fullname,fullname_len);
+   ucs2utf8(vp + username_offset,username,username_len);
+   ucs2utf8(vp + fullname_offset,fullname,fullname_len);
+
    if (gverbose) {
      printf("RID     : %04d [%04x]\n",rid,rid);
      printf("Username: %s\n",username);

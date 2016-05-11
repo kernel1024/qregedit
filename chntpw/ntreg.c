@@ -307,7 +307,6 @@ int get_int( char *array )
 
 void cheap_uni2ascii(char *src, char *dest, int l)
 {
-   
    for (; l > 0; l -=2) {
       *dest = *src;
       dest++; src +=2;

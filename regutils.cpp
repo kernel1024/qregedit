@@ -720,7 +720,7 @@ QList<CUser> CRegController::listUsers(struct hive* hdesc)
         CValue v = vl.at(vidx);
 
         if (v.vOther.length() < 0xcc) {
-            qWarning() << tr("V-value for user <%1> (rid: %2) is too short (only %3 bytes)"
+            qWarning() << tr("V-value for user <%1> (rid: %2) is too short (only %3 bytes) "
                              "to be a SAM user V-struct!")
                           .arg(username).arg(rid).arg(v.vOther.size());
         } else {
@@ -804,6 +804,83 @@ QList<CUser> CRegController::listUsers(struct hive* hdesc)
         }
     }
 
+    return res;
+}
+
+QList<CGroup> CRegController::listGroups(struct hive *hdesc)
+{
+    struct sid_array *sids = NULL;
+    unsigned int grp;
+    struct group_C *cd;
+    char *str;
+    char *username;
+
+    QList<CGroup> res;
+
+    if (hdesc->type != HTYPE_SAM) return res;
+
+    QStringList grpcPaths;
+    // Paths for group ID
+    grpcPaths << "\\SAM\\Domains\\Builtin\\Aliases" << "\\SAM\\Domains\\Account\\Aliases";
+
+    foreach (const QString grpcPath, grpcPaths) {
+        struct nk_key *key = navigateKey(hdesc,grpcPath);
+        if (!checkKey(key)) {
+            qWarning() << grpcPath << " key not found. This is not SAM hive?";
+            return res;
+        }
+
+        QStringList grpsl = listKeys(hdesc, key);
+        foreach (const QString grps, grpsl) {
+            /* Pick up all subkeys here, they are local groups */
+
+            bool ok;
+            grp = grps.toInt(&ok,16);
+            if (!ok) continue;
+
+            /* Groups keys have a C value, get it and pick up the name etc */
+            /* Some other keys also exists (Members, Names at least), but we skip them */
+
+            struct nk_key *gkey = navigateKey(hdesc, QString("%1\\%2").arg(grpcPath,grps));
+            if (!checkKey(gkey)) {
+                qWarning() << grps << "key not found in" << grpcPath << "key. Really strange...";
+                return res;
+            }
+            QList<CValue> vl = listValues(hdesc, gkey, TPF_VK_EXACT);
+            int vidx = vl.indexOf(CValue("C",REG_BINARY));
+            if (vidx<0) {
+                qWarning() << " Could not locate C-key in SAM for group: " << grps << grpcPath;
+                continue;
+            }
+            CValue v = vl.at(vidx);
+
+            if (!v.vOther.isEmpty()) {
+                cd = (struct group_C *)v.vOther.data();
+
+                CGroup group(grp,
+                             fromUtf16(v.vOther.mid(cd->grpname_ofs + 0x34, cd->grpname_len)),
+                             fromUtf16(v.vOther.mid(cd->fullname_ofs + 0x34, cd->fullname_len)));
+
+                sam_get_grp_members_sid(hdesc, grp, &sids);
+
+                QList<CGroupMember> members;
+                for (int i = 0; sids[i].sidptr; i++) {
+                    str = sam_sid_to_string(sids[i].sidptr);
+                    username = sam_get_username_from_sid(hdesc, sids[i].sidptr);
+                    members << CGroupMember(sids[i].sidptr->array[sids[i].sidptr->sections-1],
+                            QString::fromUtf8(username),
+                            QString::fromLatin1(str));
+
+                    FREE(username);
+                    FREE(str);
+                }
+                sam_free_sid_array(sids);
+
+                group.members.append(members);
+                res << group;
+            }
+        }
+    }
     return res;
 }
 
@@ -1168,24 +1245,6 @@ CUser::CUser(int arid, const QString &ausername, bool admin, bool locked, bool b
     groupIDs.clear();
 }
 
-//CUser::CUser(int arid, const QString& ausername, bool admin, bool locked, bool blank_pw,
-//             const QString &afullname, const QString &acomment, const QString &ahomedir,
-//             const QString &aprofilePath, const QString &adriveLetter, const QString &alogonScript)
-//{
-//    rid = arid;
-//    username = ausername;
-//    is_admin = admin;
-//    is_locked = locked;
-//    is_blank_pw = blank_pw;
-//    fullname = afullname;
-//    comment = acomment;
-//    homeDir = ahomedir;
-//    profilePath = aprofilePath;
-//    driveLetter = adriveLetter;
-//    logonScript = alogonScript;
-//    groupIDs.clear();
-//}
-
 CUser &CUser::operator=(const CUser &other)
 {
     rid = other.rid;
@@ -1225,15 +1284,20 @@ CGroup::CGroup()
     grpid = -1;
     name.clear();
     fullname.clear();
-    members = NULL;
+    members.clear();
 }
 
 CGroup::~CGroup()
 {
-    if (members!=NULL)
-        sam_free_sid_array(members);
+    members.clear();
+}
 
-    members=NULL;
+CGroup::CGroup(int id)
+{
+    grpid = id;
+    name.clear();
+    fullname.clear();
+    members.clear();
 }
 
 CGroup::CGroup(int id, const QString &aname, const QString &afullname)
@@ -1241,7 +1305,7 @@ CGroup::CGroup(int id, const QString &aname, const QString &afullname)
     grpid = id;
     name = aname;
     fullname = afullname;
-    members = NULL;
+    members.clear();
 }
 
 CGroup &CGroup::operator=(const CGroup &other)
@@ -1249,54 +1313,14 @@ CGroup &CGroup::operator=(const CGroup &other)
     grpid = other.grpid;
     name = other.name;
     fullname = other.fullname;
-
-/*    if (members)
-        sam_free_sid_array(members);
-
-    CREATE(members, struct sid_array, 1);
-    members[0].len = 0;
-    members[0].sidptr = NULL;
-
-    // copy members
-    int num = 0;
-    while (other.members[num].sidptr) {
-        ALLOC(members[], 1, other.members[num].len);
-        memcpy()
-
-
-
-      free(array[num].sidptr);
-      num++;
-    }
-
-
-    while (size > 0) {
-
-      sidlen = sidbuf->sections * 4 + 8;
-
-      // printf("make_sid_array: sidlen = %d\n",sidlen);
-
-      ALLOC(sb, 1, sidlen);
-      memcpy(sb, sidbuf, sidlen);
-      array[num].len = sidlen;
-      array[num].sidptr = sb;
-      sidbuf = (void *)sidbuf + sidlen;
-      size -= sidlen;
-      num++;
-
-      array = realloc(array, (num + 1) * sizeof(struct sid_array));
-      array[num].len = 0;
-      array[num].sidptr = NULL;
-
-    }*/
-
-
+    members.clear();
+    members.append(other.members);
     return *this;
 }
 
 bool CGroup::operator==(const CGroup &ref) const
 {
-    return (grpid==ref.grpid && name==ref.name);
+    return (grpid==ref.grpid);
 }
 
 bool CGroup::operator!=(const CGroup &ref) const
@@ -1307,4 +1331,41 @@ bool CGroup::operator!=(const CGroup &ref) const
 bool CGroup::isEmpty() const
 {
     return (grpid<0 && name.isEmpty());
+}
+
+CGroupMember::CGroupMember()
+{
+    rid = -1;
+    name.clear();
+    sid.clear();
+}
+
+CGroupMember::CGroupMember(int arid, const QString &aname, const QString &asid)
+{
+    rid = arid;
+    name = aname;
+    sid = asid;
+}
+
+CGroupMember &CGroupMember::operator=(const CGroupMember &other)
+{
+    rid = other.rid;
+    name = other.name;
+    sid = other.sid;
+    return *this;
+}
+
+bool CGroupMember::operator==(const CGroupMember &ref) const
+{
+    return (rid==ref.rid && name==ref.name && sid==ref.sid);
+}
+
+bool CGroupMember::operator!=(const CGroupMember &ref) const
+{
+    return !operator ==(ref);
+}
+
+bool CGroupMember::isEmpty() const
+{
+    return (name.isEmpty() && sid.isEmpty() && rid<0);
 }

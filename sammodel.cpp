@@ -4,28 +4,127 @@
 CSAMGroupsModel::CSAMGroupsModel()
     : QAbstractItemModel()
 {
+    hive_num = -1;
+    groups_count = 0; // count of top-level items
 
 }
 
 void CSAMGroupsModel::keyChanged(const QModelIndex &key, QTreeView *view)
 {
+    Q_UNUSED(view)
 
+    // Close old key
+    if (hive_num>=0) {
+        if (groups_count>0) {
+            beginRemoveRows(QModelIndex(),0,groups_count-1);
+            endRemoveRows();
+        }
+
+        hive_num = -1;
+        groups_count = 0;
+    }
+
+    // Exit if no valid key passed
+    if (!key.isValid()) return;
+
+    // Read new SAM
+    struct nk_key* ck;
+    struct hive* h;
+    if (!cgl->reg->keyPrepare(key.internalPointer(),h,hive_num,ck)) {
+        hive_num = -1;
+        groups_count = 0;
+        return;
+    }
+    if (h->type!=HTYPE_SAM) {
+        hive_num = -1;
+        groups_count = 0;
+        return;
+    }
+
+    groups_count = cgl->reg->listGroups(h).count();
+
+    if (groups_count>0) {
+        beginInsertRows(QModelIndex(),0,groups_count-1);
+        endInsertRows();
+    }
+}
+
+inline quintptr gid2id(quint16 gid, qint16 member_idx)
+{
+    return (member_idx << 16) + gid;
+}
+
+inline void id2gid(quintptr id, quint16 &gid, qint16 &member_idx)
+{
+    gid = id & 0x0ffff;
+    member_idx = (id >> 16) & 0x0ffff;
 }
 
 QModelIndex CSAMGroupsModel::index(int row, int column, const QModelIndex &parent) const
 {
-    return QModelIndex();
+    if (!hasIndex(row, column, parent) || hive_num<0)
+        return QModelIndex();
 
+    struct hive* h = cgl->reg->getHivePtr(hive_num);
+    QList<CGroup> grps = cgl->reg->listGroups(h);
+
+    if (!parent.isValid()) { // top-level - group names
+        if (row<0 || row>=grps.count())
+            return QModelIndex();
+
+        return createIndex(row, column, gid2id(grps.at(row).grpid,-1));
+    } else {
+        qint16 mid; quint16 gid;
+        id2gid(parent.internalId(),gid,mid);
+        int idx = grps.indexOf(CGroup(gid));
+        if (idx>=0) {
+            if (row>=0 && row<grps.at(idx).members.count())
+                return createIndex(row, column, gid2id(gid,row));
+        }
+        return QModelIndex();
+    }
 }
 
 QModelIndex CSAMGroupsModel::parent(const QModelIndex &child) const
 {
-    return QModelIndex();
+    if (!child.isValid() || hive_num<0)
+        return QModelIndex();
 
+    struct hive* h = cgl->reg->getHivePtr(hive_num);
+    QList<CGroup> grps = cgl->reg->listGroups(h);
+
+    qint16 mid; quint16 gid;
+    id2gid(child.internalId(),gid,mid);
+
+    if (mid<0) // child is top-level item, group
+        return QModelIndex();
+
+    // child is username, return index of group and group's position
+    int idx = grps.indexOf(CGroup(gid));
+    if (idx>=0)
+        return createIndex(idx,0,gid2id(gid,-1));
+
+    return QModelIndex();
 }
 
 int CSAMGroupsModel::rowCount(const QModelIndex &parent) const
 {
+    if (hive_num<0 || parent.column() > 0)
+        return 0;
+
+    struct hive* h = cgl->reg->getHivePtr(hive_num);
+    QList<CGroup> grps = cgl->reg->listGroups(h);
+
+    if (!parent.isValid())
+        return grps.count();
+
+    qint16 mid; quint16 gid;
+    id2gid(parent.internalId(),gid,mid);
+
+    int idx = grps.indexOf(CGroup(gid));
+    if (idx>=0 && mid<0)
+        return grps.at(idx).members.count();
+
     return 0;
 }
 
@@ -38,8 +137,40 @@ int CSAMGroupsModel::columnCount(const QModelIndex &parent) const
 
 QVariant CSAMGroupsModel::data(const QModelIndex &index, int role) const
 {
-    return QVariant();
+    if (!index.isValid() || hive_num<0)
+        return QVariant();
 
+    struct hive* h = cgl->reg->getHivePtr(hive_num);
+    QList<CGroup> grps = cgl->reg->listGroups(h);
+
+    qint16 mid; quint16 gid;
+    id2gid(index.internalId(),gid,mid);
+    int idx = grps.indexOf(CGroup(gid));
+
+    if (role == Qt::DisplayRole) {
+        if (idx>=0) {
+            if (mid>=0) { // username
+                CGroupMember m = grps.at(idx).members.at(mid);
+                return QString("(0x%1) %2 (SID: %3)")
+                        .arg((quint16)m.rid,3,16,QChar('0'))
+                        .arg(m.name,m.sid);
+            } else { // group
+                return QString("(0x%1) %2")
+                        .arg((quint16)grps.at(idx).grpid,3,16,QChar('0'))
+                        .arg(grps.at(idx).name);
+            }
+        }
+    } else if (role == Qt::StatusTipRole) {
+        if (idx>=0 && mid<0)
+            return grps.at(idx).fullname;
+    } else if (role == Qt::DecorationRole && idx>=0) {
+        if (mid>=0)
+            return QIcon::fromTheme("user-properties");
+        else
+            return QIcon::fromTheme("user-group-properties");
+    }
+
+    return QVariant();
 }
 
 Qt::ItemFlags CSAMGroupsModel::flags(const QModelIndex &index) const
@@ -53,7 +184,8 @@ Qt::ItemFlags CSAMGroupsModel::flags(const QModelIndex &index) const
 CSAMUsersModel::CSAMUsersModel()
     : QAbstractTableModel()
 {
-
+    hive_num = -1;
+    val_count = 0;
 }
 
 void CSAMUsersModel::keyChanged(const QModelIndex &key, QTableView *view)

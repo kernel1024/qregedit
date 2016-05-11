@@ -156,7 +156,7 @@ QVariant CRegistryModel::data(const QModelIndex &index, int role) const
         if (!s.isEmpty()) return s;
 
     } else if (role == Qt::DecorationRole) {
-        return QIcon(":/icons/folder");
+        return QIcon::fromTheme("folder");
     } else if (role == Qt::StatusTipRole) {
         QString s = QString("\\") + cgl->reg->getKeyFullPath(h, k);
         if (!s.isEmpty()) return s;

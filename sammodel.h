@@ -9,6 +9,10 @@
 class CSAMGroupsModel : public QAbstractItemModel
 {
     Q_OBJECT
+private:
+    int hive_num;
+    int groups_count;
+
 public:
     explicit CSAMGroupsModel();
 

@@ -1,8 +1,6 @@
 <RCC>
     <qresource prefix="/icons">
         <file alias="bin">data/bin.ico</file>
-        <file alias="folder">data/folder.ico</file>
-        <file alias="folderopen">data/folderopen.ico</file>
         <file alias="string">data/string.ico</file>
         <file alias="regedit">data/regedit.ico</file>
     </qresource>

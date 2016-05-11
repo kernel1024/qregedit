@@ -50,9 +50,6 @@ public:
     QList<int> groupIDs;
     CUser();
     CUser(int arid, const QString& ausername, bool admin, bool locked, bool blank_pw);
-/*    CUser(int arid, const QString& ausername, bool admin, bool locked, bool blank_pw,
-          const QString &afullname, const QString &acomment, const QString &ahomeDir,
-          const QString &aprofilePath, const QString &adriveLetter, const QString &alogonScript);*/
     CUser &operator=(const CUser& other);
     bool operator==(const CUser& ref) const;
     bool operator!=(const CUser& ref) const;
@@ -61,15 +58,32 @@ public:
 
 Q_DECLARE_METATYPE(CUser)
 
+class CGroupMember
+{
+public:
+    int rid;
+    QString name;
+    QString sid;
+    CGroupMember();
+    CGroupMember(int arid, const QString& aname, const QString& asid);
+    CGroupMember &operator=(const CGroupMember& other);
+    bool operator==(const CGroupMember& ref) const;
+    bool operator!=(const CGroupMember& ref) const;
+    bool isEmpty() const;
+};
+
+Q_DECLARE_METATYPE(CGroupMember)
+
 class CGroup
 {
 public:
     int grpid;
     QString name;
     QString fullname;
-    struct sid_array* members;
+    QList<CGroupMember> members;
     CGroup();
     virtual ~CGroup();
+    CGroup(int id);
     CGroup(int id, const QString& aname, const QString& afullname);
     CGroup &operator=(const CGroup& other);
     bool operator==(const CGroup& ref) const;
@@ -78,6 +92,7 @@ public:
 };
 
 Q_DECLARE_METATYPE(CGroup)
+
 
 class CRegController : public QObject
 {
@@ -134,11 +149,15 @@ public:
 
     // For SAM hive
     QList<CUser> listUsers(struct hive *hdesc);
+    QList<CGroup> listGroups(hive *hdesc);
 signals:
     void hiveOpened(int idx);
     void hiveClosed(int old_idx);
     void hiveSaved(int idx);
     void hiveAboutToClose(int idx);
 };
+
+QByteArray toUtf16(const QString &str);
+QString fromUtf16(const QByteArray &str);
 
 #endif // REGUTILS_H

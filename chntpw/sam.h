@@ -284,6 +284,7 @@ int sam_put_user_grpids(struct hive *hdesc, int rid, struct keyval *val);
 int sam_add_user_to_grp(struct hive *hdesc, int rid, int grp);
 int sam_remove_user_from_grp(struct hive *hdesc, int rid, int grp);
 char *sam_get_username(struct hive *hdesc, int rid);
+char *sam_get_username_from_sid(struct hive *hdesc, struct sid_binary *sid);
 char *sam_get_groupname(struct hive *hdesc, int grpid);
 int sam_list_users(struct hive *hdesc, int readable);
 int sam_list_user_groups(struct hive *hdesc, int rid, int check);

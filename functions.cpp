@@ -8,6 +8,7 @@
 #include "chntpw/ntreg.h"
 #include "functions.h"
 #include "global.h"
+#include "regutils.h"
 
 /* Extended compare for key names with encoding
  * s1 - raw src keyname, in utf8 or Latin1 encoding
@@ -36,4 +37,15 @@ void qf_printf( const char* format, ... ) {
 
     msg.remove(QRegExp("[\\x00-\\x1f]"));
     QMessageLogger(0,0,0,"ntreg").debug() << msg;
+}
+
+int ucs2utf8(char *src, char *dest, int l)
+{
+   QByteArray ba(src,l);
+   ba = fromUtf16(ba).toUtf8();
+   if (dest==NULL)
+       return ba.size();
+
+   memcpy(dest,ba.data(),ba.size());
+   return ba.size();
 }
