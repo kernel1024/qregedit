@@ -19,7 +19,8 @@ SOURCES += main.cpp\
     logdisplay.cpp \
     chntpw/chntpw.c \
     chntpw/libsam.c \
-    sammodel.cpp
+    sammodel.cpp \
+    userdialog.cpp
 
 HEADERS  += mainwindow.h \
     chntpw/ntreg.h \
@@ -34,13 +35,15 @@ HEADERS  += mainwindow.h \
     logdisplay.h \
     chntpw/sam.h \
     chntpw/chntpw.h \
-    sammodel.h
+    sammodel.h \
+    userdialog.h
 
 FORMS    += mainwindow.ui \
     valueeditor.ui \
     settingsdlg.ui \
     progressdialog.ui \
-    logdisplay.ui
+    logdisplay.ui \
+    userdialog.ui
 
 OTHER_FILES += \
     LICENSE \

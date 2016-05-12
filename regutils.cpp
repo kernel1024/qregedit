@@ -1229,6 +1229,22 @@ CUser::CUser()
     groupIDs.clear();
 }
 
+CUser::CUser(int arid)
+{
+    rid = arid;
+    username.clear();
+    is_admin = false;
+    is_locked = false;
+    is_blank_pw = false;
+    fullname.clear();
+    comment.clear();
+    homeDir.clear();
+    profilePath.clear();
+    driveLetter.clear();
+    logonScript.clear();
+    groupIDs.clear();
+}
+
 CUser::CUser(int arid, const QString &ausername, bool admin, bool locked, bool blank_pw)
 {
     rid = arid;
@@ -1266,7 +1282,7 @@ CUser &CUser::operator=(const CUser &other)
 
 bool CUser::operator==(const CUser &ref) const
 {
-    return ((rid==ref.rid) && (username==ref.username));
+    return (rid==ref.rid);
 }
 
 bool CUser::operator!=(const CUser &ref) const

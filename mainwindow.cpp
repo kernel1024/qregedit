@@ -11,6 +11,7 @@
 #include "mainwindow.h"
 #include "valueeditor.h"
 #include "logdisplay.h"
+#include "userdialog.h"
 #include "ui_mainwindow.h"
 
 CMainWindow::CMainWindow(QWidget *parent) :
@@ -78,6 +79,9 @@ CMainWindow::CMainWindow(QWidget *parent) :
             this,&CMainWindow::valuesCtxMenu);
     connect(ui->tableValues,&QTableView::activated,
             this,&CMainWindow::valuesModify);
+
+    connect(ui->tableUsers,&QTableView::activated,
+            this,&CMainWindow::editUser);
 
     connect(treeModel,&CRegistryModel::keyFound,this,&CMainWindow::keyFound);
     connect(treeModel->finder,&CFinder::searchFinished,
@@ -439,4 +443,18 @@ void CMainWindow::deleteValue(const QModelIndex &value)
     if (!valuesModel->deleteValue(value))
         QMessageBox::critical(this,tr("Registry Editor - Error"),tr("Failed to delete value '%1'.")
                               .arg(name));
+}
+
+void CMainWindow::editUser(const QModelIndex &index)
+{
+    if (!index.isValid()) return;
+
+    int rid = usersModel->getUserRID(index);
+    if (rid<0) return;
+
+    CUserDialog *dlg = new CUserDialog(this, usersModel->getHiveIdx(), rid);
+    dlg->exec();
+
+    dlg->setParent(NULL);
+    delete dlg;
 }

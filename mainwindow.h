@@ -52,6 +52,7 @@ public slots:
     void searchTxt();
     void searchFinished();
     void deleteValue(const QModelIndex& value);
+    void editUser(const QModelIndex& index);
 
 };
 

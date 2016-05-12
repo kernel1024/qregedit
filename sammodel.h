@@ -38,6 +38,8 @@ public:
     explicit CSAMUsersModel();
 
     void keyChanged(const QModelIndex& key, QTableView *view);
+    int getUserRID(const QModelIndex& index);
+    int getHiveIdx() { return hive_num; }
 
 protected:
     int rowCount(const QModelIndex &parent) const;

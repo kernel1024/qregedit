@@ -229,6 +229,19 @@ void CSAMUsersModel::keyChanged(const QModelIndex &key, QTableView *view)
         view->resizeColumnsToContents();
 }
 
+int CSAMUsersModel::getUserRID(const QModelIndex &index)
+{
+    if (!index.isValid() || hive_num<0) return -1;
+
+    struct hive* h = cgl->reg->getHivePtr(hive_num);
+    QList<CUser> ul = cgl->reg->listUsers(h);
+
+    int row = index.row();
+    if  (row<0 || row>=ul.count()) return -1;
+
+    return ul.at(row).rid;
+}
+
 int CSAMUsersModel::rowCount(const QModelIndex &parent) const
 {
     Q_UNUSED(parent)
@@ -283,13 +296,6 @@ QVariant CSAMUsersModel::data(const QModelIndex &index, int role) const
             default:
                 break;
         }
-    } else if (role == Qt::ToolTipRole) {
-        return QString("Comment: %1\n"
-                       "Home path: %2\n"
-                       "Profile path: %3\n"
-                       "Drive letter: %4\n"
-                       "Logon script: %5")
-                .arg(v.comment,v.homeDir,v.profilePath,v.driveLetter,v.logonScript);
     }
 
     return QVariant();

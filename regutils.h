@@ -49,6 +49,7 @@ public:
     QString fullname, comment, homeDir, profilePath, driveLetter, logonScript;
     QList<int> groupIDs;
     CUser();
+    CUser(int arid);
     CUser(int arid, const QString& ausername, bool admin, bool locked, bool blank_pw);
     CUser &operator=(const CUser& other);
     bool operator==(const CUser& ref) const;
