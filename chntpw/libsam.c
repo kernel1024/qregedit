@@ -49,6 +49,8 @@
 
 #include "../functions.h"
 
+// TODO: migrate remaining printf's to qf_printf for diagnostics
+
 extern int gverbose;  /* Ehm.. must get rid of this some day */
 
 /* Strings for account bits fields */
@@ -760,7 +762,8 @@ int sam_put_user_grpids(struct hive *hdesc, int rid, struct keyval *val)
       if (!newcount) continue; /* Nothing to put there anyway, so just try next path */
 
       snprintf(news,180,SAM_GRPSIDPATH[n] ,sidstr);
-      // snprintf(ks, 180, "%08X", rid);
+      snprintf(ks, 180, "%08X", rid);
+      // BUG: ks was uninitialized here... must be reported to chntpw authors for upstream
 
       // printf("sam_put_user_grpids: creating key <%s> on path <%s>\n",ks,news);
 
@@ -769,14 +772,14 @@ int sam_put_user_grpids(struct hive *hdesc, int rid, struct keyval *val)
       newkey = add_key(hdesc, nk+4, ks);
       if (!newkey) {
 	fprintf(stderr,"sam_put_user_grpids: ERROR: creating group list key for RID <%08x> under path <%s>\n",rid,news);
-	abort();
+    return (0);
       }
 
       nk = trav_path(hdesc, 0, s, 0);
 
       if (!add_value(hdesc, nk+4, "@", 0)) {
 	fprintf(stderr,"sam_put_user_grpids: ERROR: creating group list default value for RID <%08x> under path <%s>\n",rid,news);
-	abort();
+    return (0);
       }
     }
     
@@ -1024,20 +1027,22 @@ int sam_add_user_to_grp(struct hive *hdesc, int rid, int grp)
   }
   }
 
+  int success = 0;
   /* Write new lists back to registry */
   if (!sam_put_user_grpids(hdesc, rid, (struct keyval *)newusrgrplist)) {
     qf_printf("add_user_to_grp: failed storing users group list\n");
   } else if (!sam_put_grp_members_sid(hdesc, grp, narray)) {
     qf_printf("add_user_to_grp: failed storing groups user list\n");
     sam_put_user_grpids(hdesc, rid, (struct keyval *)usrgrplist);      /* Try to roll back */
-  }
+  } else
+      success = 1;
   
   FREE(usrgrplist);
   FREE(newusrgrplist);
   sam_free_sid_array(narray);
   FREE(sarray);     /* Pointers was copied to narray, and freed above, just free the array here */
 
-  return(1);
+  return(success);
 
 }
 
@@ -1188,20 +1193,22 @@ int sam_remove_user_from_grp(struct hive *hdesc, int rid, int grp)
   }
   }
 
+  int success = 0;
   /* Write new lists back to registry */
   if (!sam_put_user_grpids(hdesc, rid, (struct keyval *)newusrgrplist)) {
     fprintf(stderr, "remove_user_from_grp: failed storing users group list\n");
   } else if (!sam_put_grp_members_sid(hdesc, grp, narray)) {
     fprintf(stderr,"remvoe_user_from_grp: failed storing groups user list\n");
     sam_put_user_grpids(hdesc, rid, (struct keyval *)usrgrplist);      /* Try to roll back */
-  }
+  } else
+      success = 1;
   
   FREE(usrgrplist);
   FREE(newusrgrplist);
   sam_free_sid_array(narray);
   FREE(sarray);     /* Pointers was copied to narray, and freed above, just free the array here */
 
-  return(1);
+  return(success);
 
 }
 

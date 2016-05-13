@@ -11,6 +11,7 @@
 
 extern "C" {
 #include <chntpw/chntpw.h>
+#include <chntpw/sam.h>
 }
 
 class CRegistryModel;
@@ -49,6 +50,7 @@ public:
     QString fullname, comment, homeDir, profilePath, driveLetter, logonScript;
     QList<int> groupIDs;
     CUser();
+    CUser(const CUser& other);
     CUser(int arid);
     CUser(int arid, const QString& ausername, bool admin, bool locked, bool blank_pw);
     CUser &operator=(const CUser& other);
@@ -112,7 +114,7 @@ public:
     void closeTopHive(int idx);
 
     int getHivesCount() const { return hives.count(); }
-    struct hive* getHivePtr(int idx) { return hives.at(idx); }
+    struct hive* getHivePtr(int idx);
     int getHive(const struct nk_key * key) const;
     bool checkKey(const struct nk_key * key) const;
     bool keyPrepare(const void *ptr, struct hive *&hive, int &hnum, struct nk_key *&key) const;
@@ -150,7 +152,9 @@ public:
 
     // For SAM hive
     QList<CUser> listUsers(struct hive *hdesc);
-    QList<CGroup> listGroups(hive *hdesc);
+    QList<CGroup> listGroups(struct hive *hdesc);
+    QByteArray readFValue(struct hive *hdesc, int rid);
+    bool writeFValue(struct hive *hdesc, int rid, const QByteArray &f);
 signals:
     void hiveOpened(int idx);
     void hiveClosed(int old_idx);

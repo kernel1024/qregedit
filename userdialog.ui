@@ -271,7 +271,7 @@
      <item>
       <widget class="QPushButton" name="btnUnlock">
        <property name="toolTip">
-        <string>Unlocks and enables disabled account</string>
+        <string>Lock, unlock and enables user account</string>
        </property>
        <property name="text">
         <string>Unlock</string>

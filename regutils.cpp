@@ -117,6 +117,13 @@ void CRegController::closeTopHive(int idx)
     emit hiveClosed(idx);
 }
 
+struct hive *CRegController::getHivePtr(int idx)
+{
+     if (idx>=0 && idx<hives.count())
+         return hives.at(idx);
+     else
+         return NULL;
+}
 
 QStringList CRegController::listKeys(struct hive *hdesc, struct nk_key *key)
 {
@@ -185,7 +192,7 @@ int CRegController::findKeyOfs(struct hive *hdesc, struct nk_key *key, const QSt
 
     if (name.isEmpty()) return -3;
 
-    nkofs = cgl->reg->getKeyOfs(hdesc, key);
+    nkofs = getKeyOfs(hdesc, key);
 
     if (key->id != 0x6b6e) {
         qCritical() << tr("Error: Not a 'nk' node at offset 0x%1!").arg(nkofs,0,16);
@@ -213,7 +220,7 @@ QList<int> CRegController::listKeysOfs(struct hive *hdesc, struct nk_key *key)
 
     QList<int> keys;
 
-    nkofs = cgl->reg->getKeyOfs(hdesc, key);
+    nkofs = getKeyOfs(hdesc, key);
 
     if (key->id != 0x6b6e) {
         qCritical() << tr("Error: Not a 'nk' node at offset 0x%1!").arg(nkofs,0,16);
@@ -302,7 +309,7 @@ struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct nk_key *ke
     struct vex_data vex;
     struct keyval *nkv = kv;
 
-    nkofs = cgl->reg->getKeyOfs(hdesc, key);
+    nkofs = getKeyOfs(hdesc, key);
 
     if (key->id != 0x6b6e) {
         qCritical() << tr("Error: Not a 'nk' node at offset 0x%1!").arg(nkofs,0,16);
@@ -483,13 +490,13 @@ QString CRegController::getKeyFullPath(struct hive *hdesc, struct nk_key *key, b
 bool CRegController::createKey(hive *hdesc, nk_key *parent, const QString &name)
 {
     QString s = name;
-    return (add_key(hdesc, cgl->reg->getKeyOfs(hdesc, parent), s.toUtf8().data())!=NULL);
+    return (add_key(hdesc, getKeyOfs(hdesc, parent), s.toUtf8().data())!=NULL);
 }
 
 void CRegController::deleteKey(hive *hdesc, nk_key *parent, const QString &name)
 {
     QString s = name;
-    rdel_keys(hdesc, s.toUtf8().data(), cgl->reg->getKeyOfs(hdesc, parent));
+    rdel_keys(hdesc, s.toUtf8().data(), getKeyOfs(hdesc, parent));
 }
 
 QString escapeString(const QString& str)
@@ -884,6 +891,43 @@ QList<CGroup> CRegController::listGroups(struct hive *hdesc)
     return res;
 }
 
+QByteArray CRegController::readFValue(struct hive *hdesc, int rid)
+{
+    struct nk_key *key = navigateKey(hdesc,QString("\\SAM\\Domains\\Account\\Users\\")+
+                                               QString("%1").arg((quint16)rid,8,16,QChar('0')).toUpper());
+    if (!checkKey(key)) {
+        qWarning() << "F-value not found. This is not SAM hive.";
+        return QByteArray();
+    }
+    QList<CValue> vl = listValues(hdesc, key, TPF_VK_EXACT);
+    int vidx = vl.indexOf(CValue("F",REG_BINARY));
+    if (vidx<0) {
+        qWarning() << "Could not locate F-value in SAM for user.";
+        return QByteArray();
+    }
+    CValue v = vl.at(vidx);
+    if (v.vOther.length() < 0x48) {
+        qWarning() << tr("F-value is 0x%1 bytes sized, need >= 0x48, unable to check account flags.")
+                              .arg((quint16)v.vOther.length(),8,16,QChar('0'));
+        return QByteArray();
+    }
+
+    return v.vOther;
+}
+
+bool CRegController::writeFValue(struct hive *hdesc, int rid, const QByteArray &f)
+{
+    struct nk_key *key = navigateKey(hdesc,QString("\\SAM\\Domains\\Account\\Users\\")+
+                                               QString("%1").arg((quint16)rid,8,16,QChar('0')).toUpper());
+    if (!checkKey(key)) {
+        qWarning() << "F-value not found. This is not SAM hive.";
+        return false;
+    }
+    CValue v = CValue("F",REG_BINARY);
+    v.vOther = f;
+    return setValue(hdesc, key, v);
+}
+
 QString unquoteString(const QString& s)
 {
     QString a = s;
@@ -1122,7 +1166,7 @@ bool CRegController::setValue(struct hive *hdesc, struct nk_key* key, const CVal
     }
 
     if (newkv!=NULL) {
-        bool res = put_buf2val(hdesc,newkv,cgl->reg->getKeyOfs(hdesc,key),
+        bool res = put_buf2val(hdesc,newkv,getKeyOfs(hdesc,key),
                                value.name.toUtf8().data(),value.type,TPF_VK_EXACT)>=0;
         FREE(newkv);
         return res;
@@ -1135,13 +1179,13 @@ bool CRegController::setValue(struct hive *hdesc, struct nk_key* key, const CVal
 bool CRegController::deleteValue(struct hive *hdesc, struct nk_key *key, const QString &vname)
 {
     QString s = vname;
-    return del_value(hdesc, cgl->reg->getKeyOfs(hdesc, key), s.toUtf8().data(), TPF_EXACT)==0;
+    return del_value(hdesc, getKeyOfs(hdesc, key), s.toUtf8().data(), TPF_EXACT)==0;
 }
 
 bool CRegController::createValue(struct hive *hdesc, struct nk_key *key, int vtype, const QString &vname)
 {
     QString s = vname;
-    return add_value(hdesc, cgl->reg->getKeyOfs(hdesc, key), s.toUtf8().data(), vtype)!=NULL;
+    return add_value(hdesc, getKeyOfs(hdesc, key), s.toUtf8().data(), vtype)!=NULL;
 }
 
 CValue::CValue()
@@ -1227,6 +1271,23 @@ CUser::CUser()
     driveLetter.clear();
     logonScript.clear();
     groupIDs.clear();
+}
+
+CUser::CUser(const CUser &other)
+{
+    rid = other.rid;
+    username = other.username;
+    is_admin = other.is_admin;
+    is_locked = other.is_locked;
+    is_blank_pw = other.is_blank_pw;
+    fullname = other.fullname;
+    comment = other.comment;
+    homeDir = other.homeDir;
+    profilePath = other.profilePath;
+    driveLetter = other.driveLetter;
+    logonScript = other.logonScript;
+    groupIDs.clear();
+    groupIDs.append(other.groupIDs);
 }
 
 CUser::CUser(int arid)

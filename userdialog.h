@@ -2,6 +2,7 @@
 #define USERDIALOG_H
 
 #include <QDialog>
+#include "global.h"
 
 namespace Ui {
 class CUserDialog;
@@ -18,10 +19,14 @@ public:
 private:
     Ui::CUserDialog *ui;
     int m_rid;
-    int m_hive;
-
+    CUser* m_user;
+    struct hive* m_hive;
 
     void reloadUserInfo();
+
+public slots:
+    void unlockAccount();
+    void promoteUser();
 };
 
 #endif // USERDIALOG_H

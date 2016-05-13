@@ -193,29 +193,6 @@ void E1(uchar *k, uchar *d, uchar *out)
 
 #endif   /* DOCRYPTO */
 
-
-
-/* Promote user into administrators group (group ID 0x220)
- * rid   - users rid
- *
- * return true on success
- */
-
-int promote_user(struct hive *hdesc, int rid)
-{
-
-    if (!rid) return 0;
-    // Adding to 0x220 (Administrators) ...
-    if (!sam_add_user_to_grp(hdesc, rid, 0x220)) return 0;
-    // Adding to 0x221 (Users) ...
-    if (!sam_add_user_to_grp(hdesc, rid, 0x221)) return 0;
-
-    // Removing from 0x222 (Guests) ...
-    if (!sam_remove_user_from_grp(hdesc, rid, 0x222)) return 0;
-
-    return 1;
-}
-
 /* Decode the V-struct, and change the password
  * vofs - offset into SAM buffer, start of V struct
  * rid - the users RID, required for the DES decrypt stage
@@ -277,7 +254,7 @@ int change_user_pw(struct hive *hdesc, char *buf, int rid, int vlen, int stat, c
     }
 
     if (ntpw_len < 16) {
-        printf("** No NT MD4 hash found. This user probably has a BLANK password!\n");
+        qf_printf("** No NT MD4 hash found. This user probably has a BLANK password!\n");
         if (lmpw_len < 16) {
             qf_printf("** No LANMAN hash found either. Try login with no password!\n");
 #ifdef DOCRYPTO
@@ -401,63 +378,4 @@ int change_user_pw(struct hive *hdesc, char *buf, int rid, int vlen, int stat, c
 #endif
 
     return(1);
-}
-
-
-/* Find a username in the SAM registry, then get it's V-value
- *
- * returns 0 on failure
- *
- * username in UTF8 or Latin1
- */
-
-int get_user_rid(struct hive *hdesc, char *username)
-{
-    char s[200];
-    int rid = 0;
-
-    if (!username) return 0;
-    if (*username == '0' && *(username+1) == 'x') sscanf(username,"%i",&rid);
-
-    if (!rid) { /* Look up username */
-        /* Extract the unnamed value out of the username-key, value is RID  */
-        snprintf(s,180,"\\SAM\\Domains\\Account\\Users\\Names\\%s\\@",username);
-        rid = get_dword(hdesc,0,s, TPF_VK_EXACT|TPF_VK_SHORT);
-        if (rid == -1) {
-            qf_printf("Cannot find user, path is <%s>\n",s);
-            return 0;
-        }
-    }
-
-    return rid;
-}
-
-/* Find a user V-value by specified RID
- *
- * returns 0 on failure
- * NOTE: caller must deallocate buffer! a simple free(keyval) will suffice.
- */
-
-struct keyval* get_user_v_ptr(struct hive *hdesc, int rid)
-{
-    char s[200];
-    struct keyval *v;
-
-    /* Now that we have the RID, build the path to, and get the V-value */
-    snprintf(s,180,"\\SAM\\Domains\\Account\\Users\\%08X\\V",rid);
-    v = get_val2buf(hdesc, NULL, 0, s, REG_BINARY, TPF_VK_EXACT);
-    if (!v) {
-        qf_printf("Cannot find users V value <%s>\n",s);
-        return NULL;
-    }
-
-    if (v->len < 0xcc) {
-        qf_printf("Value <%s> is too short (only %d bytes) to be a SAM user V-struct!\n",
-                  s, v->len);
-    } else {
-        // all ok
-        return v;
-    }
-    FREE(v);
-    return NULL;
 }
