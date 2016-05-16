@@ -721,6 +721,7 @@ QList<CUser> CRegController::listUsers(struct hive* hdesc)
             m = sam_get_user_grpids(hdesc, rid);
             QList<int> groups;
             groups.clear();
+            isadmin = 0;
             if (m) {
                 grps = (unsigned int *)&m->data;
                 count = m->len >> 2;
