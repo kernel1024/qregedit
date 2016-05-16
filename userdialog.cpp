@@ -4,6 +4,7 @@
 
 #include "userdialog.h"
 #include "ui_userdialog.h"
+#include "ui_listdialog.h"
 
 static const QStringList acb_fields = {
     "Disabled",
@@ -40,6 +41,9 @@ CUserDialog::CUserDialog(QWidget *parent, int hive_idx, int rid) :
 
     connect(ui->btnUnlock,&QPushButton::clicked,this,&CUserDialog::unlockAccount);
     connect(ui->btnPromote,&QPushButton::clicked,this,&CUserDialog::promoteUser);
+    connect(ui->btnClearPassword,&QPushButton::clicked,this,&CUserDialog::clearPassword);
+    connect(ui->btnAddToGroup,&QPushButton::clicked,this,&CUserDialog::addToGroup);
+    connect(ui->btnRemoveFromGroup,&QPushButton::clicked,this,&CUserDialog::removeFromGroup);
 
     for (int i=0;i<acb_fields.count();i++) {
         QCheckBox *cb = findChild<QCheckBox *>(QString("cbACB%1").arg(i+1));
@@ -150,7 +154,10 @@ void CUserDialog::unlockAccount()
     } else
         f->ACB_bits |= ACB_DISABLED;
     f->failedcnt = 0;
-    cgl->reg->writeFValue(m_hive,m_user->rid,fba);
+
+    if (!cgl->reg->writeFValue(m_hive,m_user->rid,fba))
+        QMessageBox::critical(this,tr("QRegEdit error"),
+                              tr("Failed to update F-value for user."));
 
     reloadUserInfo();
 }
@@ -189,4 +196,88 @@ void CUserDialog::promoteUser()
     reloadUserInfo();
     QMessageBox::information(this,tr("QRegEdit accounts editor"),
                              tr("Successfully promoted current user to administrator."));
+}
+
+void CUserDialog::clearPassword()
+{
+    if (m_hive==NULL || m_user==NULL) {
+        QMessageBox::critical(this,tr("QRegEdit error"),
+                              tr("User data not loaded."));
+        return;
+    }
+
+    QByteArray vba = cgl->reg->readVValue(m_hive,m_user->rid);
+    struct user_V *v = (struct user_V *)(vba.data());
+
+    /* Setting hash lengths to zero seems to make NT think it is blank.
+     * However, since we cant cut the previous hash bytes out of the V value
+     * due to missing resize-support of values, it may leak about 40 bytes
+     * each time we do this.
+     */
+    v->ntpw_len = 0;
+    v->lmpw_len = 0;
+
+    if (!cgl->reg->writeVValue(m_hive,m_user->rid,vba))
+        QMessageBox::critical(this,tr("QRegEdit error"),
+                              tr("Failed to update V-value for user."));
+
+    reloadUserInfo();
+}
+
+void CUserDialog::addToGroup()
+{
+    if (m_hive==NULL || m_user==NULL) {
+        QMessageBox::critical(this,tr("QRegEdit error"),
+                              tr("User data not loaded."));
+        return;
+    }
+
+    QDialog *dlg = new QDialog(this);
+    Ui::CListDialog ldui;
+    ldui.setupUi(dlg);
+
+    QList<CGroup> grps = cgl->reg->listGroups(m_hive);
+    for (int i=0;i<grps.count();i++) {
+        int gid = grps.at(i).grpid;
+        if (!m_user->groupIDs.contains(gid))
+            ldui.list->addItem(grps.at(i).name,gid);
+    }
+
+    if (dlg->exec()==QDialog::Accepted) {
+        bool ok;
+        int grpid = ldui.list->currentData().toInt(&ok);
+
+        if (!sam_add_user_to_grp(m_hive, m_rid, grpid))
+            QMessageBox::critical(this,tr("QRegEdit error"),
+                                  tr("Failed to add user to group."));
+
+        reloadUserInfo();
+    }
+    dlg->setParent(NULL);
+    dlg->deleteLater();
+}
+
+void CUserDialog::removeFromGroup()
+{
+    if (m_hive==NULL || m_user==NULL) {
+        QMessageBox::critical(this,tr("QRegEdit error"),
+                              tr("User data not loaded."));
+        return;
+    }
+
+    QListWidgetItem *itm = ui->listGroups->currentItem();
+    if (itm==NULL || itm->data(Qt::UserRole).isNull() ||
+            !itm->data(Qt::UserRole).canConvert<int>()) {
+        QMessageBox::warning(this,tr("QRegEdit user editor"),
+                             tr("Please select group from list in user editor dialog."));
+        return;
+    }
+
+    int grp = itm->data(Qt::UserRole).toInt();
+
+    if (!sam_remove_user_from_grp(m_hive, m_rid, grp))
+        QMessageBox::critical(this,tr("QRegEdit error"),
+                              tr("Failed to remove user from group."));
+
+    reloadUserInfo();
 }

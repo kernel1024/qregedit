@@ -27,6 +27,9 @@ private:
 public slots:
     void unlockAccount();
     void promoteUser();
+    void clearPassword();
+    void addToGroup();
+    void removeFromGroup();
 };
 
 #endif // USERDIALOG_H

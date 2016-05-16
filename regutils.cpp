@@ -709,30 +709,10 @@ QList<CUser> CRegController::listUsers(struct hive* hdesc)
         }
         if (rid<0) continue;
 
-        // Now that we have the RID, build the path to, and get the V-value
-        QString keynm = QString("\\SAM\\Domains\\Account\\Users\\") +
-                        QString("%1").arg((quint16)rid,8,16,QChar('0')).toUpper();
-        ukey = navigateKey(hdesc,keynm);
-        if (!checkKey(ukey)) {
-            qWarning() << " Could not navigate to SAM username key for user: " << username << keynm;
-            continue;
-        }
-        vl = listValues(hdesc, ukey, TPF_VK_EXACT | TPF_VK_SHORT);
-        int vidx = vl.indexOf(CValue("V",REG_BINARY));
-        if (vidx<0) {
-            qWarning() << " Could not locate V-key in SAM for user: " << username << keynm;
-            continue;
+        QByteArray vba = readVValue(hdesc,rid);
 
-        }
-        CValue v = vl.at(vidx);
-
-        if (v.vOther.length() < 0xcc) {
-            qWarning() << tr("V-value for user <%1> (rid: %2) is too short (only %3 bytes) "
-                             "to be a SAM user V-struct!")
-                          .arg(username).arg(rid).arg(v.vOther.size());
-        } else {
-
-            vpwd = (struct user_V *)v.vOther.data();
+        if (!vba.isEmpty()) {
+            vpwd = (struct user_V *)vba.data();
             ntpw_len = vpwd->ntpw_len;
 
             acb = sam_handle_accountbits(hdesc, rid, 0);
@@ -754,7 +734,7 @@ QList<CUser> CRegController::listUsers(struct hive* hdesc)
             CUser us = CUser(rid, username, isadmin, (acb & 0x8000), (ntpw_len<16));
             us.groupIDs.append(groups);
 
-            int vlen = v.vOther.size();
+            int vlen = vba.size();
 
             int username_offset = vpwd->username_ofs;
             int username_len    = vpwd->username_len;
@@ -799,12 +779,12 @@ QList<CUser> CRegController::listUsers(struct hive* hdesc)
                 logonscr_offset += 0xCC;
 
                 // leave username as from V-key name
-                us.fullname = fromUtf16(v.vOther.mid(fullname_offset,fullname_len));
-                us.comment  = fromUtf16(v.vOther.mid(comment_offset,comment_len));
-                us.homeDir  = fromUtf16(v.vOther.mid(homedir_offset,homedir_len));
-                us.profilePath = fromUtf16(v.vOther.mid(profile_offset,profile_len));
-                us.driveLetter = fromUtf16(v.vOther.mid(drvletter_offset,drvletter_len));
-                us.logonScript = fromUtf16(v.vOther.mid(logonscr_offset,logonscr_len));
+                us.fullname = fromUtf16(vba.mid(fullname_offset,fullname_len));
+                us.comment  = fromUtf16(vba.mid(comment_offset,comment_len));
+                us.homeDir  = fromUtf16(vba.mid(homedir_offset,homedir_len));
+                us.profilePath = fromUtf16(vba.mid(profile_offset,profile_len));
+                us.driveLetter = fromUtf16(vba.mid(drvletter_offset,drvletter_len));
+                us.logonScript = fromUtf16(vba.mid(logonscr_offset,logonscr_len));
             }
 
             res << us;
@@ -926,6 +906,47 @@ bool CRegController::writeFValue(struct hive *hdesc, int rid, const QByteArray &
     CValue v = CValue("F",REG_BINARY);
     v.vOther = f;
     return setValue(hdesc, key, v);
+}
+
+QByteArray CRegController::readVValue(hive *hdesc, int rid)
+{
+    QString keynm = QString("\\SAM\\Domains\\Account\\Users\\") +
+                    QString("%1").arg((quint16)rid,8,16,QChar('0')).toUpper();
+    struct nk_key* ukey = navigateKey(hdesc,keynm);
+    if (!checkKey(ukey)) {
+        qWarning() << " Could not navigate to SAM username key for user " << keynm;
+        return QByteArray();
+    }
+    QList<CValue> vl = listValues(hdesc, ukey, TPF_VK_EXACT | TPF_VK_SHORT);
+    int vidx = vl.indexOf(CValue("V",REG_BINARY));
+    if (vidx<0) {
+        qWarning() << " Could not locate V-key in SAM for user " << keynm;
+        return QByteArray();
+
+    }
+    CValue v = vl.at(vidx);
+    if (v.vOther.length() < 0xcc) {
+        qWarning() << tr("V-value for user (rid: %1) is too short (only %2 bytes) "
+                         "to be a SAM user V-struct!")
+                      .arg(rid).arg(v.vOther.size());
+        return QByteArray();
+    }
+
+    return v.vOther;
+}
+
+bool CRegController::writeVValue(hive *hdesc, int rid, const QByteArray &data)
+{
+    QString keynm = QString("\\SAM\\Domains\\Account\\Users\\") +
+                    QString("%1").arg((quint16)rid,8,16,QChar('0')).toUpper();
+    struct nk_key* ukey = navigateKey(hdesc,keynm);
+    if (!checkKey(ukey)) {
+        qWarning() << " Could not navigate to SAM username key for user " << keynm;
+        return false;
+    }
+    CValue v = CValue("V",REG_BINARY);
+    v.vOther = data;
+    return setValue(hdesc, ukey, v);
 }
 
 QString unquoteString(const QString& s)

@@ -10,7 +10,7 @@
 #include <QTextStream>
 
 extern "C" {
-#include <chntpw/chntpw.h>
+#include <chntpw/ntreg.h>
 #include <chntpw/sam.h>
 }
 
@@ -155,6 +155,8 @@ public:
     QList<CGroup> listGroups(struct hive *hdesc);
     QByteArray readFValue(struct hive *hdesc, int rid);
     bool writeFValue(struct hive *hdesc, int rid, const QByteArray &f);
+    QByteArray readVValue(struct hive *hdesc, int rid);
+    bool writeVValue(struct hive *hdesc, int rid, const QByteArray &data);
 signals:
     void hiveOpened(int idx);
     void hiveClosed(int old_idx);

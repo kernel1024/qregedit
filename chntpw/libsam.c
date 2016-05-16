@@ -49,7 +49,7 @@
 
 #include "../functions.h"
 
-extern int gverbose;  /* Ehm.. must get rid of this some day */
+int gverbose = 0;  /* Ehm.. must get rid of this some day */
 
 /* Strings for account bits fields */
 
@@ -831,11 +831,7 @@ int sam_put_user_grpids(struct hive *hdesc, int rid, struct keyval *val)
     FREE(p[n]);
   }
 
-
-  qf_printf("sam_put_user_grpids: success exit\n");
   return(1);
-
-
 }
 
 
