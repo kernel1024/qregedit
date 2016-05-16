@@ -210,6 +210,9 @@ void CMainWindow::hivePrepareClose(int idx)
     Q_UNUSED(idx)
 
     valuesModel->keyChanged(QModelIndex(),ui->tableValues);
+    groupsModel->keyChanged(QModelIndex(),ui->treeGroups);
+    usersModel->keyChanged(QModelIndex(),ui->tableUsers);
+    ui->tabSAM->hide();
 }
 
 void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTable)
