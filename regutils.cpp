@@ -18,6 +18,7 @@ QByteArray toUtf16(const QString &str)
     QTextCodec *codec = QTextCodec::codecForName("UTF-16");
     QTextEncoder *encoderWithoutBom = codec->makeEncoder( QTextCodec::IgnoreHeader );
     QByteArray ba  = encoderWithoutBom ->fromUnicode( str );
+    delete encoderWithoutBom;
     ba.append('\0'); ba.append('\0');
     return ba;
 }
@@ -27,6 +28,7 @@ QString fromUtf16(const QByteArray &str)
     QTextCodec *codec = QTextCodec::codecForName("UTF-16");
     QTextDecoder *decoderWithoutBom = codec->makeDecoder( QTextCodec::IgnoreHeader );
     QString s  = decoderWithoutBom->toUnicode( str );
+    delete decoderWithoutBom;
     return s;
 }
 
