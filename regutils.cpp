@@ -365,6 +365,7 @@ struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct keyval *kv
     } else {
         kr = (keyval*)calloc(1,l*sizeof(int)+4);
     }
+    if (!kr) return (NULL);
 
     kr->len = l;
 
@@ -399,7 +400,7 @@ struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct keyval *kv
     return(kr);
 }
 
-QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, int forceHex, int exact)
+QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, bool forceHex, int exact)
 {
     void *data;
     int len,i,type;
@@ -703,7 +704,7 @@ QList<CUser> CRegController::listUsers(struct hive* hdesc)
             continue;
         }
         QList<CValue> vl = listValues(hdesc, ukey, TPF_VK_EXACT | TPF_VK_SHORT);
-        for (int i=0;vl.count();i++) {
+        for (int i=0;i<vl.count();i++) {
             if (vl.at(i).name==QString("@")) {
                 rid = vl.at(i).type;
                 break;
@@ -1221,6 +1222,15 @@ CValue::CValue()
     vOther.clear();
 }
 
+CValue::CValue(const CValue &other)
+{
+    name = other.name;
+    type = other.type;
+    vDWORD = other.vDWORD;
+    vString = other.vString;
+    vOther = other.vOther;
+}
+
 CValue::CValue(int atype)
 {
     name.clear();
@@ -1393,6 +1403,15 @@ CGroup::~CGroup()
     members.clear();
 }
 
+CGroup::CGroup(const CGroup &other)
+{
+    grpid = other.grpid;
+    name = other.name;
+    fullname = other.fullname;
+    members.clear();
+    members.append(other.members);
+}
+
 CGroup::CGroup(int id)
 {
     grpid = id;
@@ -1439,6 +1458,13 @@ CGroupMember::CGroupMember()
     rid = -1;
     name.clear();
     sid.clear();
+}
+
+CGroupMember::CGroupMember(const CGroupMember &other)
+{
+    rid = other.rid;
+    name = other.name;
+    sid = other.sid;
 }
 
 CGroupMember::CGroupMember(int arid, const QString &aname, const QString &asid)

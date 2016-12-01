@@ -27,8 +27,8 @@ public:
     quint32 vDWORD;
     QString vString;
     QByteArray vOther;
-    struct vex_data m_vex;
     CValue();
+    CValue(const CValue& other);
     CValue(int atype);
     CValue(const QString& aname, int atype);
     CValue(struct vex_data vex, const QString &str, const QByteArray &data);
@@ -68,6 +68,7 @@ public:
     QString name;
     QString sid;
     CGroupMember();
+    CGroupMember(const CGroupMember& other);
     CGroupMember(int arid, const QString& aname, const QString& asid);
     CGroupMember &operator=(const CGroupMember& other);
     bool operator==(const CGroupMember& ref) const;
@@ -86,6 +87,7 @@ public:
     QList<CGroupMember> members;
     CGroup();
     virtual ~CGroup();
+    CGroup(const CGroup& other);
     CGroup(int id);
     CGroup(int id, const QString& aname, const QString& afullname);
     CGroup &operator=(const CGroup& other);
@@ -132,7 +134,7 @@ public:
     bool exportKey(struct hive *hdesc, struct nk_key* key, const QString &prefix, QTextStream &file);
     bool importReg(struct hive *hdesc, const QString& filename);
 
-    QVariant getValue(struct hive *hdesc, struct vex_data vex, int forceHex, int exact = TPF_VK);
+    QVariant getValue(struct hive *hdesc, struct vex_data vex, bool forceHex, int exact = TPF_VK);
     CValue getValue(struct hive *hdesc, struct nk_key *key, const QString& name, int checkType = REG_NONE);
     QList<CValue> listValues(struct hive *hdesc, struct nk_key *key, int exact = TPF_VK);
     struct keyval *getKeyValue(struct hive *hdesc, struct keyval *kv, struct vex_data vex,
