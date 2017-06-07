@@ -921,7 +921,8 @@ int sam_add_user_to_grp(struct hive *hdesc, int rid, int grp)
   /* Allocate new larger usrgrplist for one more entry */
 
   ALLOC(newusrgrplist, usrgrplist->len + 4 + 4, 1);
-  bzero(newusrgrplist, usrgrplist->len + 4 + 4);      /* for sanity.. */
+  memset(newusrgrplist, 0, usrgrplist->len + 4 + 4);      /* for sanity.. */
+//  bzero(newusrgrplist, usrgrplist->len + 4 + 4);      /* for sanity.. */
   newusrgrplist->len = usrgrplist->len + 4;
 
   og = (unsigned int *)&usrgrplist->data;
@@ -1112,7 +1113,8 @@ int sam_remove_user_from_grp(struct hive *hdesc, int rid, int grp)
   /* Allocate same size usrgrplist, since we don't know if we are in there and need to be removed */
 
   ALLOC(newusrgrplist, usrgrplist->len + 4, 1);
-  bzero(newusrgrplist, usrgrplist->len + 4);      /* for sanity.. */
+  memset(newusrgrplist, 0, usrgrplist->len + 4);      /* for sanity.. */
+//  bzero(newusrgrplist, usrgrplist->len + 4);      /* for sanity.. */
   newusrgrplist->len = usrgrplist->len;
 
   og = (unsigned int *)&usrgrplist->data;
