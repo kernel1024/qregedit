@@ -52,3 +52,8 @@ RESOURCES += \
     qregedit.qrc
 
 include( qhexedit2/qhexedit.pri )
+
+win32 {
+    RC_FILE = qregedit.rc
+}
+
