@@ -18,7 +18,7 @@ CMainWindow::CMainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
-    if (cgl==NULL)
+    if (cgl==nullptr)
         cgl = new CGlobal(this);
 
     ui->setupUi(this);
@@ -54,7 +54,7 @@ CMainWindow::CMainWindow(QWidget *parent) :
     connect(ui->actionSettings,&QAction::triggered,[this](){
        cgl->settingsDialog(this);
     });
-    if (cgl->logWindow!=NULL)
+    if (cgl->logWindow!=nullptr)
         connect(ui->actionLog,&QAction::triggered,cgl->logWindow,&CLogDisplay::show);
 
     connect(ui->actionFind,&QAction::triggered,this,&CMainWindow::searchTxt);
@@ -143,7 +143,7 @@ void CMainWindow::centerWindow()
 
 void CMainWindow::closeEvent(QCloseEvent *event)
 {
-    if (cgl!=NULL && cgl->safeToClose())
+    if (cgl!=nullptr && cgl->safeToClose())
         event->accept();
     else
         event->ignore();
@@ -298,7 +298,7 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, const bool fromValuesTab
         });
 
         struct hive *h = cgl->reg->getHivePtr(hive);
-        if (h!=NULL && h->type==HTYPE_SOFTWARE) {
+        if (h!=nullptr && h->type==HTYPE_SOFTWARE) {
             cm->addSeparator();
             acm = cm->addAction(tr("Show OS info..."));
             connect(acm,&QAction::triggered,[this,h](){
@@ -373,7 +373,7 @@ void CMainWindow::valuesModify(const QModelIndex &key)
 void CMainWindow::createEntry()
 {
     QAction* ac = qobject_cast<QAction *>(sender());
-    if (ac==NULL) return;
+    if (ac==nullptr) return;
     bool ok;
     int type = ac->data().toInt(&ok);
     if (!ok) return;
@@ -458,6 +458,6 @@ void CMainWindow::editUser(const QModelIndex &index)
     CUserDialog *dlg = new CUserDialog(this, usersModel->getHiveIdx(), rid);
     dlg->exec();
 
-    dlg->setParent(NULL);
+    dlg->setParent(nullptr);
     delete dlg;
 }

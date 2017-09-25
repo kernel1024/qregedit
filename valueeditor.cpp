@@ -17,7 +17,7 @@ CValueEditor::CValueEditor(QWidget *parent, int createType, const QModelIndex& i
 
     // replace widget placeholder with hex editor
     ui->page_hex->layout()->removeWidget(ui->widgetHex);
-    ui->widgetHex->setParent(NULL);
+    ui->widgetHex->setParent(nullptr);
     delete ui->widgetHex;
 
     hexEditor = new QHexEdit(this);
@@ -33,7 +33,7 @@ CValueEditor::CValueEditor(QWidget *parent, int createType, const QModelIndex& i
        if (checked) ui->spinDWORD->setDisplayIntegerBase(16);
     });
 
-    if (cgl==NULL || !cgl->reg->valuesModel) return;
+    if (cgl==nullptr || !cgl->reg->valuesModel) return;
 
     m_createType = createType;
     valueIndex = idx;
@@ -60,7 +60,7 @@ CValueEditor::~CValueEditor()
 void CValueEditor::saveValue()
 {
     if ((!valueIndex.isValid() && (m_createType==REG_NONE))
-            || cgl==NULL || !cgl->reg->valuesModel) return;
+            || cgl==nullptr || !cgl->reg->valuesModel) return;
 
     if (m_createType!=REG_NONE)
         m_value.name = ui->editValueName->text();

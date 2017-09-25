@@ -14,7 +14,7 @@ CRegistryModel::CRegistryModel()
 {
     cgl->reg->treeModel = this;
 
-    finder = new CFinder(NULL);
+    finder = new CFinder(nullptr);
 
     connect(finder,&CFinder::keyFound,this,
             &CRegistryModel::finderKeyFound,Qt::QueuedConnection);
@@ -338,7 +338,7 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView* table)
         endInsertRows();
     }
 
-    if (table!=NULL) {
+    if (table!=nullptr) {
         table->resizeColumnsToContents();
         table->sortByColumn(0, Qt::AscendingOrder);
     }

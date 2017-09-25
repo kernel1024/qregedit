@@ -8,7 +8,7 @@
 #include "ui_logdisplay.h"
 
 CLogDisplay::CLogDisplay() :
-    QDialog(NULL, Qt::Tool | Qt::CustomizeWindowHint | Qt::WindowTitleHint),
+    QDialog(nullptr, Qt::Tool | Qt::CustomizeWindowHint | Qt::WindowTitleHint),
     ui(new Ui::CLogDisplay)
 {
     ui->setupUi(this);
@@ -29,7 +29,7 @@ void CLogDisplay::updateMessages()
     if (!isVisible()) return;
     int fr = -1;
     int sv = -1;
-    if (ui->logView->verticalScrollBar()!=NULL)
+    if (ui->logView->verticalScrollBar()!=nullptr)
         sv = ui->logView->verticalScrollBar()->value();
 
     if (!savedMessages.isEmpty())
@@ -41,7 +41,7 @@ void CLogDisplay::updateMessages()
         savedMessages = debugMessages;
 
     updateText(savedMessages.join('\n'));
-    if (ui->logView->verticalScrollBar()!=NULL) {
+    if (ui->logView->verticalScrollBar()!=nullptr) {
         if (!ui->checkScrollLock->isChecked())
             ui->logView->verticalScrollBar()->setValue(ui->logView->verticalScrollBar()->maximum());
         else if (sv!=-1)
@@ -58,7 +58,7 @@ void CLogDisplay::showEvent(QShowEvent *)
 {
     updateMessages();
 
-    if (firstShow && QApplication::activeWindow()!=NULL) {
+    if (firstShow && QApplication::activeWindow()!=nullptr) {
         QPoint p = QApplication::activeWindow()->pos();
         p.rx()+=200;
         p.ry()+=100;

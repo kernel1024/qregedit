@@ -43,7 +43,7 @@ int ucs2utf8(char *src, char *dest, int l)
 {
    QByteArray ba(src,l);
    ba = fromUtf16(ba).toUtf8();
-   if (dest==NULL)
+   if (dest==nullptr)
        return ba.size();
 
    memcpy(dest,ba.data(),ba.size());

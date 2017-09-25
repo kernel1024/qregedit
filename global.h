@@ -25,7 +25,7 @@ public:
     void loadSettings();
     void writeSettings();
 
-    void settingsDialog(QWidget *parent = NULL);
+    void settingsDialog(QWidget *parent = nullptr);
 
 signals:
 

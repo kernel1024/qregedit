@@ -31,12 +31,12 @@ CUserDialog::CUserDialog(QWidget *parent, int hive_idx, int rid) :
 {
     ui->setupUi(this);
     m_rid = rid;
-    m_user = NULL;
+    m_user = nullptr;
 
     m_hive = cgl->reg->getHivePtr(hive_idx);
-    if (m_hive==NULL || m_hive->type!=HTYPE_SAM) {
+    if (m_hive==nullptr || m_hive->type!=HTYPE_SAM) {
         qWarning() << "Unable to load user data. This is not SAM hive.";
-        m_hive = NULL;
+        m_hive = nullptr;
     }
 
     connect(ui->btnUnlock,&QPushButton::clicked,this,&CUserDialog::unlockAccount);
@@ -47,7 +47,7 @@ CUserDialog::CUserDialog(QWidget *parent, int hive_idx, int rid) :
 
     for (int i=0;i<acb_fields.count();i++) {
         QCheckBox *cb = findChild<QCheckBox *>(QString("cbACB%1").arg(i+1));
-        if (cb==NULL) continue;
+        if (cb==nullptr) continue;
         cb->setText(acb_fields.at(i));
     }
 
@@ -56,15 +56,15 @@ CUserDialog::CUserDialog(QWidget *parent, int hive_idx, int rid) :
 
 CUserDialog::~CUserDialog()
 {
-    if (m_user!=NULL)
+    if (m_user!=nullptr)
         delete m_user;
-    m_user = NULL;
+    m_user = nullptr;
     delete ui;
 }
 
 void CUserDialog::reloadUserInfo()
 {
-    if (m_hive==NULL || m_rid<=0) {
+    if (m_hive==nullptr || m_rid<=0) {
         QMessageBox::critical(parentWidget(),tr("QRegEdit error"),
                               tr("Unable to load user data."));
         return;
@@ -78,7 +78,7 @@ void CUserDialog::reloadUserInfo()
         return;
     }
 
-    if (m_user!=NULL)
+    if (m_user!=nullptr)
         delete m_user;
     m_user = new CUser(ul.at(uidx));
     ui->editRID->setText(QString("0x%1 (%2)")
@@ -118,7 +118,7 @@ void CUserDialog::reloadUserInfo()
     ui->groupACB->setTitle(tr("Account bits (0x%1)").arg(acb,4,16,QChar('0')));
     for (int i=0;i<acb_fields.count();i++) {
         QCheckBox *cb = findChild<QCheckBox *>(QString("cbACB%1").arg(i+1));
-        if (cb==NULL) continue;
+        if (cb==nullptr) continue;
         cb->setChecked((acb & (1<<i))>0);
     }
     ui->labelLoginCount->setText(tr("Failed login count: %1, while max tries is: %2, "
@@ -138,7 +138,7 @@ void CUserDialog::reloadUserInfo()
 
 void CUserDialog::unlockAccount()
 {
-    if (m_hive==NULL || m_user==NULL) {
+    if (m_hive==nullptr || m_user==nullptr) {
         QMessageBox::critical(this,tr("QRegEdit error"),
                               tr("User data not loaded."));
         return;
@@ -164,7 +164,7 @@ void CUserDialog::unlockAccount()
 
 void CUserDialog::promoteUser()
 {
-    if (m_hive==NULL || m_user==NULL) {
+    if (m_hive==nullptr || m_user==nullptr) {
         QMessageBox::critical(this,tr("QRegEdit error"),
                               tr("User data not loaded."));
         return;
@@ -200,7 +200,7 @@ void CUserDialog::promoteUser()
 
 void CUserDialog::clearPassword()
 {
-    if (m_hive==NULL || m_user==NULL) {
+    if (m_hive==nullptr || m_user==nullptr) {
         QMessageBox::critical(this,tr("QRegEdit error"),
                               tr("User data not loaded."));
         return;
@@ -226,7 +226,7 @@ void CUserDialog::clearPassword()
 
 void CUserDialog::addToGroup()
 {
-    if (m_hive==NULL || m_user==NULL) {
+    if (m_hive==nullptr || m_user==nullptr) {
         QMessageBox::critical(this,tr("QRegEdit error"),
                               tr("User data not loaded."));
         return;
@@ -253,20 +253,20 @@ void CUserDialog::addToGroup()
 
         reloadUserInfo();
     }
-    dlg->setParent(NULL);
+    dlg->setParent(nullptr);
     dlg->deleteLater();
 }
 
 void CUserDialog::removeFromGroup()
 {
-    if (m_hive==NULL || m_user==NULL) {
+    if (m_hive==nullptr || m_user==nullptr) {
         QMessageBox::critical(this,tr("QRegEdit error"),
                               tr("User data not loaded."));
         return;
     }
 
     QListWidgetItem *itm = ui->listGroups->currentItem();
-    if (itm==NULL || itm->data(Qt::UserRole).isNull() ||
+    if (itm==nullptr || itm->data(Qt::UserRole).isNull() ||
             !itm->data(Qt::UserRole).canConvert<int>()) {
         QMessageBox::warning(this,tr("QRegEdit user editor"),
                              tr("Please select group from list in user editor dialog."));

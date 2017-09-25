@@ -42,7 +42,7 @@ void CFinder::continueSearch()
     if (searchKeysOfsFlat.isEmpty() || searchString.isEmpty() || m_canceled) return;
 
     struct hive *h = cgl->reg->getHivePtr(searchHive);
-    if (h==NULL) { // OOPS. No more hive. Clean all and exit.
+    if (h==nullptr) { // OOPS. No more hive. Clean all and exit.
         hiveChanged(QModelIndex());
         return;
     }

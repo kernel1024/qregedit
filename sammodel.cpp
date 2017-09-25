@@ -225,7 +225,7 @@ void CSAMUsersModel::keyChanged(const QModelIndex &key, QTableView *view)
         endInsertRows();
     }
 
-    if (view!=NULL)
+    if (view!=nullptr)
         view->resizeColumnsToContents();
 }
 

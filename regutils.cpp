@@ -35,7 +35,7 @@ QString fromUtf16(const QByteArray &str)
 bool CRegController::openTopHive(const QString &filename, int mode)
 {
     struct hive* h = openHive(filename.toUtf8().data(), cgl->hiveOpenMode | mode);
-    if (h==NULL) {
+    if (h==nullptr) {
         qCritical() << "Failed to open hive" << filename;
         return false;
     }
@@ -124,7 +124,7 @@ struct hive *CRegController::getHivePtr(int idx)
      if (idx>=0 && idx<hives.count())
          return hives.at(idx);
      else
-         return NULL;
+         return nullptr;
 }
 
 QStringList CRegController::listKeys(struct hive *hdesc, struct nk_key *key)
@@ -337,27 +337,27 @@ struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct keyval *kv
 {
     int l,i,parts,list,blockofs,blocksize,point,copylen,restlen;
     struct keyval *kr;
-    void *keydataptr = NULL;
+    void *keydataptr = nullptr;
     struct db_key *db;
     void *addr;
 
     l = vex.size;
-    if (l == -1) return(NULL);  /* error */
-    if (kv && (kv->len < l)) return(NULL); /* Check for overflow of supplied buffer */
+    if (l == -1) return(nullptr);  /* error */
+    if (kv && (kv->len < l)) return(nullptr); /* Check for overflow of supplied buffer */
 
     if ((quint32)(vex.vk->len_data) == 0x80000000 && (exact & TPF_VK_SHORT)) {
         /* Special inline case (len = 0x80000000) */
         keydataptr = (&vex.vk->val_type); /* Data (4 bytes?) in type field */
     }
     if (type && vex.vk->val_type && (vex.vk->val_type) != type)
-        keydataptr = NULL;
+        keydataptr = nullptr;
     else if (vex.vk->len_data & 0x80000000)
         keydataptr = (&vex.vk->ofs_data);
     else
         keydataptr = (hdesc->buffer + vex.vk->ofs_data + 0x1004);
 
-    if (keydataptr==NULL)
-        return NULL;
+    if (keydataptr==nullptr)
+        return nullptr;
 
     /* Allocate space for data + header, or use supplied buffer */
     if (kv) {
@@ -365,7 +365,7 @@ struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct keyval *kv
     } else {
         kr = (keyval*)calloc(1,l*sizeof(int)+4);
     }
-    if (!kr) return (NULL);
+    if (!kr) return (nullptr);
 
     kr->len = l;
 
@@ -373,7 +373,7 @@ struct keyval *CRegController::getKeyValue(struct hive *hdesc, struct keyval *kv
         db = (struct db_key *)keydataptr;
         if (db->id != 0x6264) {
             qCritical() << "CRegController::getKeyValue: invalid db_key structure found for value " << vex.name;
-            return NULL;
+            return nullptr;
         }
         parts = db->no_part;
         list = db->ofs_data + 0x1004;
@@ -404,14 +404,14 @@ QVariant CRegController::getValue(struct hive *hdesc, struct vex_data vex, bool 
 {
     void *data;
     int len,i,type;
-    char *string = NULL;
-    struct keyval *kv = NULL;
+    char *string = nullptr;
+    struct keyval *kv = nullptr;
 
     QVariant res;
     type = vex.type;
     len = vex.size;
 
-    kv = getKeyValue(hdesc, NULL, vex, 0, exact);
+    kv = getKeyValue(hdesc, nullptr, vex, 0, exact);
 
     if (!kv) {
         qCritical() << "Value - could not fetch data" << vex.name;
@@ -493,7 +493,7 @@ QString CRegController::getKeyFullPath(struct hive *hdesc, struct nk_key *key, b
 bool CRegController::createKey(hive *hdesc, nk_key *parent, const QString &name)
 {
     QString s = name;
-    return (add_key(hdesc, getKeyOfs(hdesc, parent), s.toUtf8().data())!=NULL);
+    return (add_key(hdesc, getKeyOfs(hdesc, parent), s.toUtf8().data())!=nullptr);
 }
 
 void CRegController::deleteKey(hive *hdesc, nk_key *parent, const QString &name)
@@ -589,7 +589,7 @@ struct nk_key* CRegController::navigateKey(struct hive *hdesc, const QString &pa
     QStringList kl = path.split('\\',QString::SkipEmptyParts);
 
     if (kl.isEmpty())
-        key = NULL;
+        key = nullptr;
 
     while (!kl.isEmpty()) {
         QString kn = kl.takeFirst();
@@ -598,12 +598,12 @@ struct nk_key* CRegController::navigateKey(struct hive *hdesc, const QString &pa
             if (allowCreate) {
                 if (!createKey(hdesc,key,kn)) {
                     qCritical() << "navigateKey: failed to create key " << kn ;
-                    return NULL;
+                    return nullptr;
                 }
                 ofs = findKeyOfs(hdesc, key, kn);
             } else {
                 qCritical() << "navigateKey: child not found " << kn ;
-                return NULL;
+                return nullptr;
             }
         }
         key = getKeyPtr(hdesc, ofs);
@@ -615,7 +615,7 @@ struct nk_key* CRegController::navigateKey(struct hive *hdesc, const QString &pa
 QString CRegController::getOSInfo(struct hive *hdesc)
 {
     struct nk_key *key = navigateKey(hdesc,"\\Microsoft\\Windows NT\\CurrentVersion");
-    if (key==NULL) {
+    if (key==nullptr) {
         qWarning() << "\\Microsoft\\Windows NT\\CurrentVersion key not found. This is not SOFTWARE hive?";
         return QString("\\Microsoft\\Windows NT\\CurrentVersion key not found. This is not SOFTWARE hive?");
     }
@@ -675,7 +675,7 @@ QList<CUser> CRegController::listUsers(struct hive* hdesc)
     int rid;
     int ntpw_len;
 
-    struct keyval *m = NULL;
+    struct keyval *m = nullptr;
     unsigned int *grps;
     int count = 0, isadmin = 0;
 
@@ -800,7 +800,7 @@ QList<CUser> CRegController::listUsers(struct hive* hdesc)
 
 QList<CGroup> CRegController::listGroups(struct hive *hdesc)
 {
-    struct sid_array *sids = NULL;
+    struct sid_array *sids = nullptr;
     unsigned int grp;
     struct group_C *cd;
     char *str;
@@ -1058,7 +1058,7 @@ bool CRegController::importReg(struct hive *hdesc, const QString &filename)
         return false;
     }
 
-    struct nk_key *key = NULL;
+    struct nk_key *key = nullptr;
     QString valacc;
 
     while (!fs.atEnd()) {
@@ -1073,7 +1073,7 @@ bool CRegController::importReg(struct hive *hdesc, const QString &filename)
             }
             s.remove(prefix,Qt::CaseInsensitive);
             key = navigateKey(hdesc, s, true);
-            if (key == NULL) {
+            if (key == nullptr) {
                 qCritical() << "importReg: failed to navigate key " << s;
                 return false;
             }
@@ -1161,14 +1161,14 @@ QString CRegController::getValueTypeStr(int type)
 
 bool CRegController::setValue(struct hive *hdesc, struct nk_key* key, const CValue &value)
 {
-    struct keyval *newkv = NULL;
+    struct keyval *newkv = nullptr;
     int newsize = 0;
     QByteArray str;
     QString s = value.vString;
 
     switch(value.type) {
         case REG_DWORD:
-            newkv = getKeyValue(hdesc, key, NULL, value.name, value.type, TPF_VK);
+            newkv = getKeyValue(hdesc, key, nullptr, value.name, value.type, TPF_VK);
             newkv->data = value.vDWORD;
             break;
         case REG_MULTI_SZ:
@@ -1190,7 +1190,7 @@ bool CRegController::setValue(struct hive *hdesc, struct nk_key* key, const CVal
             break;
     }
 
-    if (newkv!=NULL) {
+    if (newkv!=nullptr) {
         bool res = put_buf2val(hdesc,newkv,getKeyOfs(hdesc,key),
                                value.name.toUtf8().data(),value.type,TPF_VK_EXACT)>=0;
         FREE(newkv);
@@ -1210,7 +1210,7 @@ bool CRegController::deleteValue(struct hive *hdesc, struct nk_key *key, const Q
 bool CRegController::createValue(struct hive *hdesc, struct nk_key *key, int vtype, const QString &vname)
 {
     QString s = vname;
-    return add_value(hdesc, getKeyOfs(hdesc, key), s.toUtf8().data(), vtype)!=NULL;
+    return add_value(hdesc, getKeyOfs(hdesc, key), s.toUtf8().data(), vtype)!=nullptr;
 }
 
 CValue::CValue()

@@ -5,7 +5,7 @@
 #include "settingsdlg.h"
 #include "ui_settingsdlg.h"
 
-CGlobal* cgl = NULL;
+CGlobal* cgl = nullptr;
 
 QMutex loggerMutex;
 QStringList debugMessages;
@@ -51,7 +51,7 @@ void stdConsoleOutput(QtMsgType type, const QMessageLogContext &context, const Q
 
         fprintf(stderr, "%s", fmsg.toLocal8Bit().constData());
 
-        if (cgl!=NULL && cgl->logWindow!=NULL)
+        if (cgl!=nullptr && cgl->logWindow!=nullptr)
             QMetaObject::invokeMethod(cgl->logWindow,"updateMessages");
     }
 
@@ -69,8 +69,8 @@ CGlobal::CGlobal(QObject *parent) : QObject(parent)
 
 CGlobal::~CGlobal()
 {
-    if (logWindow!=NULL) {
-        logWindow->setParent(NULL);
+    if (logWindow!=nullptr) {
+        logWindow->setParent(nullptr);
         delete logWindow;
     }
 }
@@ -172,7 +172,7 @@ QString getSaveFileNameD ( QWidget * parent, const QString & caption, const QStr
     d.setAcceptMode(QFileDialog::AcceptSave);
 
     QStringList sl;
-    if (selectedFilter!=NULL && !selectedFilter->isEmpty())
+    if (selectedFilter!=nullptr && !selectedFilter->isEmpty())
         sl=getSuffixesFromFilter(*selectedFilter);
     else
         sl=getSuffixesFromFilter(filter);
@@ -186,7 +186,7 @@ QString getSaveFileNameD ( QWidget * parent, const QString & caption, const QStr
         d.selectFile(preselectFileName);
 
     if (d.exec()==QDialog::Accepted) {
-        if (selectedFilter!=NULL)
+        if (selectedFilter!=nullptr)
             *selectedFilter=d.selectedNameFilter();
         if (!d.selectedFiles().isEmpty())
             return d.selectedFiles().first();
