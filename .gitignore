@@ -34,3 +34,5 @@ Makefile*
 *.qmlproject.user.*
 
 qregedit
+Debug-qregedit-*
+Release-qregedit-*

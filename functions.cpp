@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <stdarg.h>
 #include <QDebug>
+#include <QRegularExpression>
 
 #include "chntpw/ntreg.h"
 #include "functions.h"
@@ -20,32 +21,34 @@ int qf_strncasecmp(const char *s1, struct nk_key *s2)
     int res = 0;
     QString qs1 = QString::fromUtf8(s1);
     QString qs2;
+
     if (s2->type & KEY_NORMAL)
-        qs2 = QString::fromLatin1(s2->keyname,s2->len_name);
+        qs2 = QString::fromLatin1(s2->keyname, s2->len_name);
     else
-        qs2 = QString::fromUtf16((char16_t*)s2->keyname,s2->len_name);
+        qs2 = QString::fromUtf16((char16_t *)s2->keyname, s2->len_name);
 
     res = QString::compare(qs1, qs2, Qt::CaseInsensitive);
     return res;
 }
 
-void qf_printf( const char* format, ... ) {
+void qf_printf( const char *format, ... ) {
     va_list args;
     va_start( args, format );
     QString msg = QString::vasprintf(format, args);
     va_end( args );
 
-    msg.remove(QRegExp("[\\x00-\\x1f]"));
-    QMessageLogger(0,0,0,"ntreg").debug() << msg;
+    msg.remove(QRegularExpression("[\\x00-\\x1f]"));
+    QMessageLogger(0, 0, 0, "ntreg").debug() << msg;
 }
 
 int ucs2utf8(char *src, char *dest, int l)
 {
-   QByteArray ba(src,l);
-   ba = fromUtf16(ba).toUtf8();
-   if (dest==nullptr)
-       return ba.size();
+    QByteArray ba(src, l);
+    ba = fromUtf16(ba).toUtf8();
 
-   memcpy(dest,ba.data(),ba.size());
-   return ba.size();
+    if (dest == nullptr)
+        return ba.size();
+
+    memcpy(dest, ba.data(), ba.size());
+    return ba.size();
 }

@@ -9,13 +9,12 @@
 
 extern QStringList debugMessages;
 
-class CGlobal : public QObject
-{
+class CGlobal : public QObject {
     Q_OBJECT
-public:
+  public:
     int hiveOpenMode;
-    CRegController* reg;
-    CLogDisplay* logWindow;
+    CRegController *reg;
+    CLogDisplay *logWindow;
 
     explicit CGlobal(QObject *parent = 0);
     ~CGlobal();
@@ -27,30 +26,30 @@ public:
 
     void settingsDialog(QWidget *parent = nullptr);
 
-signals:
+  signals:
 
-public slots:
+  public slots:
 };
 
-extern CGlobal* cgl;
+extern CGlobal *cgl;
 
 void stdConsoleOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg);
 
-QString getOpenFileNameD ( QWidget * parent = 0, const QString & caption = QString(),
-                           const QString & dir = QString(), const QString & filter = QString(),
-                           QString * selectedFilter = 0, QFileDialog::Options options = 0);
+QString getOpenFileNameD ( QWidget *parent = 0, const QString &caption = QString(),
+                           const QString &dir = QString(), const QString &filter = QString(),
+                           QString *selectedFilter = 0, QFileDialog::Options options = QFileDialog::Options());
 
-QStringList getOpenFileNamesD ( QWidget * parent = 0, const QString & caption = QString(),
-                               const QString & dir = QString(), const QString & filter = QString(),
-                               QString * selectedFilter = 0, QFileDialog::Options options = 0);
+QStringList getOpenFileNamesD ( QWidget *parent = 0, const QString &caption = QString(),
+                                const QString &dir = QString(), const QString &filter = QString(),
+                                QString *selectedFilter = 0, QFileDialog::Options options = QFileDialog::Options());
 
-QString getSaveFileNameD (QWidget * parent = 0, const QString & caption = QString(),
-                          const QString & dir = QString(), const QString & filter = QString(),
-                          QString * selectedFilter = 0, QFileDialog::Options options = 0,
+QString getSaveFileNameD (QWidget *parent = 0, const QString &caption = QString(),
+                          const QString &dir = QString(), const QString &filter = QString(),
+                          QString *selectedFilter = 0, QFileDialog::Options options = QFileDialog::Options(),
                           QString preselectFileName = QString());
 
-QString	getExistingDirectoryD ( QWidget * parent = 0, const QString & caption = QString(),
-                                const QString & dir = QString(),
+QString	getExistingDirectoryD ( QWidget *parent = 0, const QString &caption = QString(),
+                                const QString &dir = QString(),
                                 QFileDialog::Options options = QFileDialog::ShowDirsOnly);
 
 #endif // GLOBAL_H

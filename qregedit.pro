@@ -1,4 +1,4 @@
-QT       += core gui widgets
+QT       += core gui widgets core5compat
 
 TARGET = qregedit
 TEMPLATE = app
