@@ -4,43 +4,45 @@
 #include <QDialog>
 #include <QStringList>
 #include <QSyntaxHighlighter>
-#include <QRegExp>
+#include <QRegularExpression>
 
 namespace Ui {
-    class CLogDisplay;
+class CLogDisplay;
 }
 
 class CLogDisplay : public QDialog {
     Q_OBJECT
+    Q_DISABLE_COPY(CLogDisplay)
 
-  public:
-    explicit CLogDisplay();
-    ~CLogDisplay();
+public:
+    explicit CLogDisplay(QWidget *parent = nullptr);
+    ~CLogDisplay() override;
 
-  public slots:
+public Q_SLOTS:
     void updateMessages();
 
-  private:
+private:
     Ui::CLogDisplay *ui;
+    bool firstShow { true };
+    QSyntaxHighlighter *syntax { nullptr };
+
     QStringList savedMessages;
-    bool firstShow;
-    QSyntaxHighlighter *syntax;
 
     void updateText(const QString &text);
 
-  protected:
-    void showEvent(QShowEvent *);
+protected:
+    void showEvent(QShowEvent *event) override;
 };
 
 class CSpecLogHighlighter : public QSyntaxHighlighter {
     Q_OBJECT
-  public:
-    CSpecLogHighlighter(QTextDocument *parent);
-  protected:
-    void highlightBlock(const QString &text);
-  private:
+public:
+    explicit CSpecLogHighlighter(QTextDocument *parent);
+protected:
+    void highlightBlock(const QString &text) override;
+private:
     void formatBlock(const QString &text,
-                     const QRegExp &exp,
+                     const QRegularExpression &exp,
                      const QColor &color = Qt::black,
                      bool weight = false,
                      bool italic = false,

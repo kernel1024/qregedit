@@ -2,18 +2,15 @@
 #include <QDebug>
 #include <QInputDialog>
 #include <QMenu>
-#include <QRegExp>
 #include "logdisplay.h"
-#include "mainwindow.h"
 #include "global.h"
 #include "ui_logdisplay.h"
 
-CLogDisplay::CLogDisplay() :
-    QDialog(nullptr, Qt::Tool | Qt::CustomizeWindowHint | Qt::WindowTitleHint),
+CLogDisplay::CLogDisplay(QWidget *parent) :
+    QDialog(parent, Qt::Tool | Qt::CustomizeWindowHint | Qt::WindowTitleHint),
     ui(new Ui::CLogDisplay)
 {
     ui->setupUi(this);
-    firstShow = true;
     syntax = new CSpecLogHighlighter(ui->logView->document());
 
     updateMessages();
@@ -21,7 +18,6 @@ CLogDisplay::CLogDisplay() :
 
 CLogDisplay::~CLogDisplay()
 {
-    savedMessages.clear();
     delete ui;
 }
 
@@ -41,16 +37,18 @@ void CLogDisplay::updateMessages()
     if (fr >= 0 && fr < debugMessages.count()) {
         for (int i = (fr + 1); i < debugMessages.count(); i++)
             savedMessages << debugMessages.at(i);
-    } else
+    } else {
         savedMessages = debugMessages;
+    }
 
     updateText(savedMessages.join('\n'));
 
     if (ui->logView->verticalScrollBar() != nullptr) {
-        if (!ui->checkScrollLock->isChecked())
+        if (!ui->checkScrollLock->isChecked()) {
             ui->logView->verticalScrollBar()->setValue(ui->logView->verticalScrollBar()->maximum());
-        else if (sv != -1)
+        } else if (sv != -1) {
             ui->logView->verticalScrollBar()->setValue(sv);
+        }
     }
 }
 
@@ -59,8 +57,10 @@ void CLogDisplay::updateText(const QString &text)
     ui->logView->setPlainText(text);
 }
 
-void CLogDisplay::showEvent(QShowEvent *)
+void CLogDisplay::showEvent(QShowEvent *event)
 {
+    Q_UNUSED(event)
+
     updateMessages();
 
     if (firstShow && QApplication::activeWindow() != nullptr) {
@@ -75,21 +75,28 @@ void CLogDisplay::showEvent(QShowEvent *)
 CSpecLogHighlighter::CSpecLogHighlighter(QTextDocument *parent)
     : QSyntaxHighlighter(parent)
 {
-
 }
 
 void CSpecLogHighlighter::highlightBlock(const QString &text)
 {
-    formatBlock(text, QRegExp("^\\S{,8}", Qt::CaseInsensitive), Qt::black, true);
-    formatBlock(text, QRegExp("\\s(\\S+\\s)?Debug:\\s", Qt::CaseInsensitive), Qt::black, true);
-    formatBlock(text, QRegExp("\\s(\\S+\\s)?Warning:\\s", Qt::CaseInsensitive), Qt::darkRed, true);
-    formatBlock(text, QRegExp("\\s(\\S+\\s)?Critical:\\s", Qt::CaseInsensitive), Qt::red, true);
-    formatBlock(text, QRegExp("\\s(\\S+\\s)?Fatal:\\s", Qt::CaseInsensitive), Qt::red, true);
-    formatBlock(text, QRegExp("\\s(\\S+\\s)?Info:\\s", Qt::CaseInsensitive), Qt::darkBlue, true);
-    formatBlock(text, QRegExp("\\(\\S+\\)$", Qt::CaseInsensitive), Qt::gray, false, true);
+    formatBlock(text,QRegularExpression(QSL("^\\S{,8}"),
+                                         QRegularExpression::CaseInsensitiveOption),Qt::black,true);
+    formatBlock(text,QRegularExpression(QSL("\\s(\\S+\\s)?Debug:\\s"),
+                                         QRegularExpression::CaseInsensitiveOption),Qt::black,true);
+    formatBlock(text,QRegularExpression(QSL("\\s(\\S+\\s)?Warning:\\s"),
+                                         QRegularExpression::CaseInsensitiveOption),Qt::darkRed,true);
+    formatBlock(text,QRegularExpression(QSL("\\s(\\S+\\s)?Critical:\\s"),
+                                         QRegularExpression::CaseInsensitiveOption),Qt::red,true);
+    formatBlock(text,QRegularExpression(QSL("\\s(\\S+\\s)?Fatal:\\s"),
+                                         QRegularExpression::CaseInsensitiveOption),Qt::red,true);
+    formatBlock(text,QRegularExpression(QSL("\\s(\\S+\\s)?Info:\\s"),
+                                         QRegularExpression::CaseInsensitiveOption),Qt::darkBlue,true);
+    formatBlock(text,QRegularExpression(QSL("\\(\\S+\\)$"),
+                                         QRegularExpression::CaseInsensitiveOption),Qt::gray,false,true);
 }
 
-void CSpecLogHighlighter::formatBlock(const QString &text, const QRegExp &exp,
+void CSpecLogHighlighter::formatBlock(const QString &text,
+                                      const QRegularExpression &exp,
                                       const QColor &color,
                                       bool weight,
                                       bool italic,
@@ -100,21 +107,18 @@ void CSpecLogHighlighter::formatBlock(const QString &text, const QRegExp &exp,
 
     QTextCharFormat fmt;
     fmt.setForeground(color);
-
-    if (weight)
+    if (weight) {
         fmt.setFontWeight(QFont::Bold);
-    else
+    } else {
         fmt.setFontWeight(QFont::Normal);
-
+    }
     fmt.setFontItalic(italic);
     fmt.setFontUnderline(underline);
     fmt.setFontStrikeOut(strikeout);
 
-    int pos = 0;
-
-    while ((pos = exp.indexIn(text, pos)) != -1) {
-        int length = exp.matchedLength();
-        setFormat(pos, length, fmt);
-        pos += length;
+    auto it = exp.globalMatch(text);
+    while (it.hasNext()) {
+        auto match = it.next();
+        setFormat(match.capturedStart(), match.capturedLength(), fmt);
     }
 }

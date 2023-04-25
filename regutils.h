@@ -3,7 +3,6 @@
 
 #include <QObject>
 #include <QStringList>
-#include <QVector>
 #include <QList>
 #include <QPointer>
 #include <QAbstractItemModel>
@@ -17,22 +16,24 @@ extern "C" {
 class CRegistryModel;
 class CValuesModel;
 
-typedef QHash<QString,QString> CStrHash;
+using CStrHash = QHash<QString,QString>;
 
 class CValue
 {
 public:
+    int type { REG_NONE };
+    quint32 vDWORD { 0 };
     QString name;
-    int type;
-    quint32 vDWORD;
     QString vString;
     QByteArray vOther;
-    CValue();
-    CValue(const CValue& other);
-    CValue(int atype);
+
+    CValue() = default;
+    virtual ~CValue() = default;
+    CValue(const CValue& other) = default;
+    explicit CValue(int atype);
     CValue(const QString& aname, int atype);
     CValue(struct vex_data vex, const QString &str, const QByteArray &data);
-    CValue &operator=(const CValue& other);
+    CValue &operator=(const CValue& other) = default;
     bool operator==(const CValue& ref) const;
     bool operator!=(const CValue& ref) const;
     bool isEmpty() const;
@@ -44,16 +45,25 @@ Q_DECLARE_METATYPE(CValue)
 class CUser
 {
 public:
-    int rid;
+    int rid { 0 };
+    bool is_admin { false };
+    bool is_locked { false };
+    bool is_blank_pw { false };
     QString username;
-    bool is_admin, is_locked, is_blank_pw;
-    QString fullname, comment, homeDir, profilePath, driveLetter, logonScript;
+    QString fullname;
+    QString comment;
+    QString homeDir;
+    QString profilePath;
+    QString driveLetter;
+    QString logonScript;
     QList<int> groupIDs;
-    CUser();
-    CUser(const CUser& other);
-    CUser(int arid);
+
+    CUser() = default;
+    virtual ~CUser() = default;
+    CUser(const CUser& other) = default;
+    explicit CUser(int arid);
     CUser(int arid, const QString& ausername, bool admin, bool locked, bool blank_pw);
-    CUser &operator=(const CUser& other);
+    CUser &operator=(const CUser& other) = default;
     bool operator==(const CUser& ref) const;
     bool operator!=(const CUser& ref) const;
     bool isEmpty() const;
@@ -64,13 +74,15 @@ Q_DECLARE_METATYPE(CUser)
 class CGroupMember
 {
 public:
-    int rid;
+    int rid { -1 };
     QString name;
     QString sid;
-    CGroupMember();
-    CGroupMember(const CGroupMember& other);
+
+    CGroupMember() = default;
+    virtual ~CGroupMember() = default;
+    CGroupMember(const CGroupMember& other) = default;
     CGroupMember(int arid, const QString& aname, const QString& asid);
-    CGroupMember &operator=(const CGroupMember& other);
+    CGroupMember &operator=(const CGroupMember& other) = default;
     bool operator==(const CGroupMember& ref) const;
     bool operator!=(const CGroupMember& ref) const;
     bool isEmpty() const;
@@ -81,16 +93,17 @@ Q_DECLARE_METATYPE(CGroupMember)
 class CGroup
 {
 public:
-    int grpid;
+    int grpid { -1 };
     QString name;
     QString fullname;
     QList<CGroupMember> members;
-    CGroup();
-    virtual ~CGroup();
-    CGroup(const CGroup& other);
-    CGroup(int id);
+
+    CGroup() = default;
+    virtual ~CGroup() = default;
+    CGroup(const CGroup& other) = default;
+    explicit CGroup(int id);
     CGroup(int id, const QString& aname, const QString& afullname);
-    CGroup &operator=(const CGroup& other);
+    CGroup &operator=(const CGroup& other) = default;
     bool operator==(const CGroup& ref) const;
     bool operator!=(const CGroup& ref) const;
     bool isEmpty() const;
@@ -103,13 +116,13 @@ class CRegController : public QObject
 {
     Q_OBJECT
 private:
-    QVector<struct hive *> hives;
+    QList <struct hive *> hives;
 
 public:
-    QPointer<CRegistryModel> treeModel;
+    QPointer<CRegistryModel> treeModel; // TODO: hide this
     QPointer<CValuesModel> valuesModel;
 
-    CRegController(QObject* parent = 0);
+    explicit CRegController(QObject* parent = nullptr);
 
     bool openTopHive(const QString &filename, int mode);
     bool saveTopHive(int idx);
@@ -137,7 +150,7 @@ public:
     QVariant getValue(struct hive *hdesc, struct vex_data vex, bool forceHex, int exact = TPF_VK);
     CValue getValue(struct hive *hdesc, struct nk_key *key, const QString& name, int checkType = REG_NONE);
     QList<CValue> listValues(struct hive *hdesc, struct nk_key *key, int exact = TPF_VK);
-    struct keyval *getKeyValue(struct hive *hdesc, struct keyval *kv, struct vex_data vex,
+    struct keyval *getKeyValue(struct hive *hdesc, struct keyval *kv, const struct vex_data &vex,
                                int type, int exact);
     struct keyval *getKeyValue(struct hive *hdesc, struct nk_key *key, struct keyval *kv,
                                const QString &name, int type, int exact);
@@ -159,7 +172,7 @@ public:
     bool writeFValue(struct hive *hdesc, int rid, const QByteArray &f);
     QByteArray readVValue(struct hive *hdesc, int rid);
     bool writeVValue(struct hive *hdesc, int rid, const QByteArray &data);
-signals:
+Q_SIGNALS:
     void hiveOpened(int idx);
     void hiveClosed(int old_idx);
     void hiveSaved(int idx);

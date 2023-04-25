@@ -15,24 +15,25 @@ class CValue;
 class CValueEditor : public QDialog
 {
     Q_OBJECT
+    Q_DISABLE_COPY(CValueEditor)
 
 public:
     explicit CValueEditor(QWidget *parent, int createType, const QModelIndex &idx);
-    ~CValueEditor();
+    ~CValueEditor() override;
 
-    bool initFailed() { return m_initFailure; }
-    CValue getValue() { return m_value; }
+    bool initFailed() const { return m_initFailure; }
+    CValue getValue() const { return m_value; }
 
-public slots:
+public Q_SLOTS:
     void saveValue();
 
 private:
     Ui::CValueEditor *ui;
     CValue m_value;
-    QHexEdit *hexEditor;
+    QHexEdit *hexEditor; // TODO: handle it
     QModelIndex valueIndex;
-    bool m_initFailure;
-    int m_createType;
+    bool m_initFailure { true };
+    int m_createType { REG_NONE };
 
     void prepareWidgets();
 };

@@ -4,25 +4,34 @@
 #include <QStack>
 #include <QFile>
 #include <QTextStream>
-#include "progressdialog.h"
+#if QT_VERSION >= 0x060000
+#include <QStringEncoder>
+#include <QStringDecoder>
+#else
+#include <QTextCodec>
+#endif
 #include "registrymodel.h"
 #include "global.h"
 #include <QDebug>
 
-CRegistryModel::CRegistryModel()
-    : QAbstractItemModel()
+CRegistryModel::CRegistryModel(QObject *parent)
+    : QAbstractItemModel(parent)
 {
     cgl->reg->treeModel = this;
 
-    finder = new CFinder(nullptr);
+    finder.reset(new CFinder(nullptr));
 
-    connect(finder, &CFinder::keyFound, this,
+    connect(finder.data(), &CFinder::keyFound, this,
             &CRegistryModel::finderKeyFound, Qt::QueuedConnection);
 
-    QThread *th = new QThread();
+    auto *th = new QThread();
     finder->moveToThread(th);
     th->start();
+
+    // BUG: thread pointer lost, memory leak
 }
+
+CRegistryModel::~CRegistryModel() = default;
 
 void CRegistryModel::beginInsertRows(const QModelIndex &parent, int first, int last)
 {
@@ -48,7 +57,7 @@ int CRegistryModel::getHiveIdx(const QModelIndex &index)
 {
     if (!index.isValid()) return -1;
 
-    return cgl->reg->getHive((struct nk_key *)(index.internalPointer()));
+    return cgl->reg->getHive(static_cast<struct nk_key *>(index.internalPointer()));
 }
 
 QModelIndex CRegistryModel::index(int row, int column, const QModelIndex &parent) const
@@ -62,21 +71,22 @@ QModelIndex CRegistryModel::index(int row, int column, const QModelIndex &parent
 
         struct hive *h = cgl->reg->getHivePtr(row);
         return createIndex(row, column, cgl->reg->getKeyPtr(h, h->rootofs + 4));
-    } else {
-        int hive = cgl->reg->getHive((struct nk_key *)parent.internalPointer());
-
-        if (hive == -1)
-            return QModelIndex();
-
-        struct hive *h = cgl->reg->getHivePtr(hive);
-
-        QList<int> keys = cgl->reg->listKeysOfs(h, (struct nk_key *)parent.internalPointer());
-
-        if (row >= 0 && row < keys.count())
-            return createIndex(row, column, cgl->reg->getKeyPtr(h, keys.at(row)));
-        else
-            return QModelIndex();
     }
+    const int hive = cgl->reg->getHive(static_cast<struct nk_key *>(parent.internalPointer()));
+
+    if (hive == -1)
+        return QModelIndex();
+
+    struct hive *h = cgl->reg->getHivePtr(hive);
+
+    const QList<int> keys = cgl->reg->listKeysOfs(h,
+                                                  static_cast<struct nk_key *>(
+                                                      parent.internalPointer()));
+
+    if (row >= 0 && row < keys.count())
+        return createIndex(row, column, cgl->reg->getKeyPtr(h, keys.at(row)));
+
+    return QModelIndex();
 }
 
 QModelIndex CRegistryModel::parent(const QModelIndex &child) const
@@ -84,9 +94,9 @@ QModelIndex CRegistryModel::parent(const QModelIndex &child) const
     if (!child.isValid())
         return QModelIndex();
 
-    struct nk_key *ck;
-    struct hive *h;
-    int hive;
+    struct nk_key *ck = nullptr;
+    struct hive *h = nullptr;
+    int hive = 0;
 
     if (!cgl->reg->keyPrepare(child.internalPointer(), h, hive, ck))
         return QModelIndex();
@@ -111,8 +121,8 @@ QModelIndex CRegistryModel::parent(const QModelIndex &child) const
     if (!cgl->reg->checkKey(gpk))
         return QModelIndex();
 
-    QList<int> pkeys = cgl->reg->listKeysOfs(h, gpk);
-    int row = pkeys.indexOf(cgl->reg->getKeyOfs(h, pk));
+    const QList<int> pkeys = cgl->reg->listKeysOfs(h, gpk);
+    int const row = pkeys.indexOf(cgl->reg->getKeyOfs(h, pk));
 
     if (row < 0 || row >= pkeys.count())
         qFatal("search for parent index in grandparent's child list failure");
@@ -128,9 +138,9 @@ int CRegistryModel::rowCount(const QModelIndex &parent) const
     if (!parent.isValid())
         return cgl->reg->getHivesCount();
 
-    struct nk_key *k;
-    struct hive *h;
-    int hive;
+    struct nk_key *k = nullptr;
+    struct hive *h = nullptr;
+    int hive = 0;
 
     if (!cgl->reg->keyPrepare(parent.internalPointer(), h, hive, k))
         return 0;
@@ -150,27 +160,30 @@ QVariant CRegistryModel::data(const QModelIndex &index, int role) const
     if (!index.isValid())
         return QVariant();
 
-    struct nk_key *k;
-    struct hive *h;
-    int hive;
+    struct nk_key *k = nullptr;
+    struct hive *h = nullptr;
+    int hive = 0;
 
     if (!cgl->reg->keyPrepare(index.internalPointer(), h, hive, k))
         return QVariant();
 
     if (role == Qt::DisplayRole) {
         return cgl->reg->getKeyName(h, k);
+    }
+    if (role == Qt::ToolTipRole) {
+        const QString s = cgl->reg->getKeyTooltip(h, k);
 
-    } else if (role == Qt::ToolTipRole) {
-        QString s = cgl->reg->getKeyTooltip(h, k);
-
-        if (!s.isEmpty()) return s;
+        if (!s.isEmpty())
+            return s;
 
     } else if (role == Qt::DecorationRole) {
         return QIcon::fromTheme("folder");
-    } else if (role == Qt::StatusTipRole) {
-        QString s = QString("\\") + cgl->reg->getKeyFullPath(h, k);
 
-        if (!s.isEmpty()) return s;
+    } else if (role == Qt::StatusTipRole) {
+        const QString s = QSL("\\") + cgl->reg->getKeyFullPath(h, k);
+
+        if (!s.isEmpty())
+            return s;
     }
 
     return QVariant();
@@ -189,9 +202,9 @@ QString CRegistryModel::getKeyName(const QModelIndex &index) const
     if (!index.isValid())
         return QString();
 
-    struct nk_key *k;
-    struct hive *h;
-    int hive;
+    struct nk_key *k = nullptr;
+    struct hive *h = nullptr;
+    int hive = 0;
 
     if (!cgl->reg->keyPrepare(index.internalPointer(), h, hive, k))
         return QString();
@@ -204,18 +217,18 @@ bool CRegistryModel::createKey(const QModelIndex &parent, const QString &name)
     if (!parent.isValid())
         return false;
 
-    struct nk_key *k;
-    struct hive *h;
-    int hive;
+    struct nk_key *k = nullptr;
+    struct hive *h = nullptr;
+    int hive = 0;
 
     if (!cgl->reg->keyPrepare(parent.internalPointer(), h, hive, k))
         return false;
 
-    QList<int> sl = cgl->reg->listKeysOfs(h, k);
+    const QList<int> sl = cgl->reg->listKeysOfs(h, k);
 
     finder->hiveChanged(parent);
     beginInsertRows(parent, sl.count(), sl.count());
-    bool res = cgl->reg->createKey(h, k, name);
+    bool const res = cgl->reg->createKey(h, k, name);
     endInsertRows();
 
     return res;
@@ -225,17 +238,18 @@ void CRegistryModel::deleteKey(const QModelIndex &idx)
 {
     if (!idx.isValid() || !idx.parent().isValid()) return;
 
-    struct nk_key *k;
-    struct hive *h;
-    int hive;
+    struct nk_key *k = nullptr;
+    struct hive *h = nullptr;
+    int hive = 0;
 
     if (!cgl->reg->keyPrepare(idx.parent().internalPointer(), h, hive, k))
         return;
 
-    QString name = cgl->reg->getKeyName(h, (struct nk_key *)idx.internalPointer());
-    QStringList kl = cgl->reg->listKeys(h, k);
+    const QString name =
+        cgl->reg->getKeyName(h,static_cast<struct nk_key *>(idx.internalPointer()));
+    const QStringList kl = cgl->reg->listKeys(h, k);
 
-    int kidx = kl.indexOf(name);
+    int const kidx = kl.indexOf(name);
 
     if (kl.contains(name)) {
         finder->hiveChanged(idx.parent());
@@ -250,14 +264,14 @@ bool CRegistryModel::exportKey(const QModelIndex &idx, const QString &filename)
     if (!idx.isValid())
         return false;
 
-    struct nk_key *k;
-    struct hive *h;
-    int hive;
+    struct nk_key *k = nullptr;
+    struct hive *h = nullptr;
+    int hive = 0;
 
     if (!cgl->reg->keyPrepare(idx.internalPointer(), h, hive, k))
         return false;
 
-    QString prefix = cgl->reg->getHivePrefix(h);
+    const QString prefix = cgl->reg->getHivePrefix(h);
 
     QFile f(filename);
 
@@ -265,11 +279,16 @@ bool CRegistryModel::exportKey(const QModelIndex &idx, const QString &filename)
         return false;
 
     QTextStream ts(&f);
+#if QT_VERSION >= 0x060000
     ts.setEncoding(QStringConverter::Utf16);
+#else
+    ts.setCodec("UTF-16");
+#endif
+
     ts.setGenerateByteOrderMark(true);
     ts << "Windows Registry Editor Version 5.00\r\n";
 
-    bool res = cgl->reg->exportKey(h, k, prefix, ts);
+    bool const res = cgl->reg->exportKey(h, k, prefix, ts);
 
     ts << "\r\n";
     ts.flush();
@@ -293,10 +312,10 @@ QModelIndex CRegistryModel::getKeyIndex(struct hive *hdesc, struct nk_key *key)
     QModelIndex idx = index(cgl->reg->getHive(key), 0, QModelIndex());
 
     while (!ofs.isEmpty()) {
-        int ko = ofs.pop();
+        const int ko = ofs.pop();
 
         for (int i = 0; i < rowCount(idx); i++) {
-            QModelIndex pidx = index(i, 0, idx);
+            const QModelIndex pidx = index(i, 0, idx);
 
             if (pidx.internalPointer() == cgl->reg->getKeyPtr(hdesc, ko)) {
                 idx = pidx;
@@ -310,18 +329,16 @@ QModelIndex CRegistryModel::getKeyIndex(struct hive *hdesc, struct nk_key *key)
 
 void CRegistryModel::finderKeyFound(struct hive *hdesc, struct nk_key *key, const QString &value)
 {
-    emit keyFound(getKeyIndex(hdesc, key), value);
+    Q_EMIT keyFound(getKeyIndex(hdesc, key), value);
 }
 
-CValuesModel::CValuesModel()
-    : QAbstractTableModel()
+CValuesModel::CValuesModel(QObject *parent)
+    : QAbstractTableModel(parent)
 {
     cgl->reg->valuesModel = this;
-    key_ofs = -1;
-    hive_num = -1;
-    val_count = 0;
-    m_keyName.clear();
 }
+
+CValuesModel::~CValuesModel() = default;
 
 void CValuesModel::keyChanged(const QModelIndex &key, QTableView *table)
 {
@@ -342,8 +359,8 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView *table)
     if (!key.isValid()) return;
 
     // Read new key
-    struct nk_key *ck;
-    struct hive *h;
+    struct nk_key *ck = nullptr;
+    struct hive *h = nullptr;
 
     if (!cgl->reg->keyPrepare(key.internalPointer(), h, hive_num, ck)) {
         hive_num = -1;
@@ -383,10 +400,7 @@ bool CValuesModel::renameValue(const QModelIndex &idx, const QString &name)
 
     v.name = name;
 
-    if (!createValue(v))
-        return false;
-
-    return true;
+    return createValue(v);
 }
 
 bool CValuesModel::deleteValue(const QModelIndex &idx)
@@ -400,16 +414,16 @@ bool CValuesModel::deleteValue(const QModelIndex &idx)
     struct hive *h = cgl->reg->getHivePtr(hive_num);
     struct nk_key *k = cgl->reg->getKeyPtr(h, key_ofs);
 
-    QString name = getValueName(idx);
+    const QString name = getValueName(idx);
 
     beginRemoveRows(QModelIndex(), idx.row(), idx.row());
-    bool res = cgl->reg->deleteValue(h, k, name);
+    const bool res = cgl->reg->deleteValue(h, k, name);
     endRemoveRows();
 
     return res;
 }
 
-QString CValuesModel::getValueName(const QModelIndex &idx)
+QString CValuesModel::getValueName(const QModelIndex &idx) const
 {
     if (!idx.isValid() || hive_num < 0 || key_ofs < 0)
         return QString();
@@ -417,18 +431,19 @@ QString CValuesModel::getValueName(const QModelIndex &idx)
     struct hive *h = cgl->reg->getHivePtr(hive_num);
     struct nk_key *k = cgl->reg->getKeyPtr(h, key_ofs);
 
-    QList<CValue> vl = cgl->reg->listValues(h, k);
+    const QList<CValue> vl = cgl->reg->listValues(h, k);
 
-    int row = idx.row();
+    const int row = idx.row();
 
-    if  (row < 0 || row >= vl.count()) return QString();
+    if  (row < 0 || row >= vl.count())
+        return QString();
 
-    CValue v = vl.at(row);
+    const CValue &v = vl.at(row);
 
     return v.name;
 }
 
-CValue CValuesModel::getValue(const QModelIndex &idx)
+CValue CValuesModel::getValue(const QModelIndex &idx) const
 {
     if (!idx.isValid() || hive_num < 0 || key_ofs < 0)
         return CValue();
@@ -436,11 +451,12 @@ CValue CValuesModel::getValue(const QModelIndex &idx)
     struct hive *h = cgl->reg->getHivePtr(hive_num);
     struct nk_key *k = cgl->reg->getKeyPtr(h, key_ofs);
 
-    QList<CValue> vl = cgl->reg->listValues(h, k);
+    const QList<CValue> vl = cgl->reg->listValues(h, k);
 
-    int row = idx.row();
+    const int row = idx.row();
 
-    if  (row < 0 || row >= vl.count()) return CValue();
+    if  (row < 0 || row >= vl.count())
+        return CValue();
 
     return vl.at(row);
 }
@@ -453,11 +469,12 @@ QModelIndex CValuesModel::getValueIdx(const QString &name) const
     struct hive *h = cgl->reg->getHivePtr(hive_num);
     struct nk_key *k = cgl->reg->getKeyPtr(h, key_ofs);
 
-    QList<CValue> vl = cgl->reg->listValues(h, k);
+    const QList<CValue> vl = cgl->reg->listValues(h, k);
 
-    for (int i = 0; i < vl.count(); i++)
+    for (int i = 0; i < vl.count(); i++) {
         if (vl.at(i).name == name)
             return index(i, 0, QModelIndex());
+    }
 
     return QModelIndex();
 }
@@ -467,7 +484,7 @@ bool CValuesModel::setValue(const QModelIndex &idx, const CValue &value)
     if (!idx.isValid() || hive_num < 0 || key_ofs < 0)
         return false;
 
-    CValue orig = getValue(idx);
+    const CValue orig = getValue(idx);
 
     if (orig.isEmpty())
         return false;
@@ -487,12 +504,15 @@ bool CValuesModel::createValue(const CValue &value)
     struct nk_key *k = cgl->reg->getKeyPtr(h, key_ofs);
 
     beginInsertRows(QModelIndex(), rowCount(QModelIndex()), rowCount(QModelIndex()));
+    // FIXME: value inserts in the middle of model... empty line at bottom of the list
 
-    if (cgl->reg->createValue(h, k, value.type, value.name))
+
+    if (cgl->reg->createValue(h, k, value.type, value.name)) {
         if (cgl->reg->setValue(h, k, value)) {
             endInsertRows();
             return true;
         }
+    }
 
     endInsertRows();
     return false;
@@ -523,35 +543,38 @@ QVariant CValuesModel::data(const QModelIndex &index, int role) const
     struct hive *h = cgl->reg->getHivePtr(hive_num);
     struct nk_key *k = cgl->reg->getKeyPtr(h, key_ofs);
 
-    QList<CValue> vl = cgl->reg->listValues(h, k);
+    const QList<CValue> vl = cgl->reg->listValues(h, k);
 
-    int row = index.row();
-    int col = index.column();
+    const int row = index.row();
+    const int col = index.column();
 
     if  (row < 0 || row >= vl.count()) return QVariant();
 
-    CValue v = vl.at(row);
+    CValue const v = vl.at(row);
 
     if (role == Qt::DisplayRole) {
         if (col == 0) {
             return v.name;
-        } else if (col == 1) {
-            QString s = cgl->reg->getValueTypeStr(v.type);
+        }
+
+        if (col == 1) {
+            const QString s = cgl->reg->getValueTypeStr(v.type);
 
             if (!s.isEmpty())
                 return s;
-            else
-                return QVariant();
-        } else if (col == 2) {
+
+            return QVariant();
+
+        }
+
+        if (col == 2) {
             if (v.type == REG_DWORD)
                 return tr("0x%1 (%2)").arg(v.vDWORD, 8, 16, QChar('0')).arg(v.vDWORD);
 
-            if (v.type == REG_SZ ||
-                    v.type == REG_EXPAND_SZ)
+            if (v.type == REG_SZ || v.type == REG_EXPAND_SZ)
                 return v.vString;
 
-            if (v.type == REG_MULTI_SZ)
-            {
+            if (v.type == REG_MULTI_SZ) {
                 QString s = v.vString;
                 s.replace('\n', ' ');
                 return s;
@@ -562,7 +585,7 @@ QVariant CValuesModel::data(const QModelIndex &index, int role) const
                 return tr("(zero-length binary value)");
 
             QString s = QString::fromLatin1(v.vOther.toHex()).toUpper();
-            int step = 2;
+            const int step = 2;
 
             for (int i = step; i <= s.size(); i += step + 1)
                 s.insert(i, " ");
@@ -598,13 +621,13 @@ QVariant CValuesModel::headerData(int section, Qt::Orientation orientation, int 
     if (role == Qt::DisplayRole && orientation == Qt::Horizontal) {
         switch (section) {
             case 0:
-                return QString("Name");
+                return QSL("Name");
 
             case 1:
-                return QString("Type");
+                return QSL("Type");
 
             case 2:
-                return QString("Value");
+                return QSL("Value");
 
             default:
                 return QVariant();

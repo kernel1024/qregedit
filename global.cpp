@@ -1,7 +1,6 @@
 #include <QSettings>
 #include <QMutex>
 #include <QTime>
-#include <QRegExp>
 #include <QRegularExpression>
 #include "global.h"
 #include "settingsdlg.h"
@@ -9,49 +8,51 @@
 
 CGlobal *cgl = nullptr;
 
-QMutex loggerMutex;
 QStringList debugMessages;
 
 void stdConsoleOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
+    static QMutex loggerMutex;
+
     loggerMutex.lock();
 
     QString lmsg = QString();
 
-    int line = context.line;
-    QString file = QString(context.file);
+    const int line = context.line;
+    const QString file = QString(context.file);
     QString category = QString(context.category);
 
-    if (category == QString("default"))
+    if (category == QSL("default")) {
         category.clear();
-    else
+    } else {
         category.append(' ');
+    }
 
     switch (type) {
-        case QtDebugMsg:
-            lmsg = QString("%1Debug: %2 (%3:%4)").arg(category, msg, file, QString("%1").arg(line));
-            break;
+    case QtDebugMsg:
+        lmsg = QSL("%1Debug: %2 (%3:%4)").arg(category, msg, file, QSL("%1").arg(line));
+        break;
 
-        case QtWarningMsg:
-            lmsg = QString("%1Warning: %2 (%3:%4)").arg(category, msg, file, QString("%1").arg(line));
-            break;
+    case QtWarningMsg:
+        lmsg = QSL("%1Warning: %2 (%3:%4)").arg(category, msg, file, QSL("%1").arg(line));
+        break;
 
-        case QtCriticalMsg:
-            lmsg = QString("%1Critical: %2 (%3:%4)").arg(category, msg, file, QString("%1").arg(line));
-            break;
+    case QtCriticalMsg:
+        lmsg = QSL("%1Critical: %2 (%3:%4)").arg(category, msg, file, QSL("%1").arg(line));
+        break;
 
-        case QtFatalMsg:
-            lmsg = QString("%1Fatal: %2 (%3:%4)").arg(category, msg, file, QString("%1").arg(line));
-            break;
+    case QtFatalMsg:
+        lmsg = QSL("%1Fatal: %2 (%3:%4)").arg(category, msg, file, QSL("%1").arg(line));
+        break;
 
-        case QtInfoMsg:
-            lmsg = QString("%1Info: %2 (%3:%4)").arg(category, msg, file, QString("%1").arg(line));
-            break;
+    case QtInfoMsg:
+        lmsg = QSL("%1Info: %2 (%3:%4)").arg(category, msg, file, QSL("%1").arg(line));
+        break;
     }
 
     if (!lmsg.isEmpty()) {
         QString fmsg = QTime::currentTime().toString("h:mm:ss") + " " + lmsg;
-        debugMessages << fmsg;
+        debugMessages.append(fmsg);
 
         while (debugMessages.count() > 5000)
             debugMessages.removeFirst();
@@ -61,7 +62,7 @@ void stdConsoleOutput(QtMsgType type, const QMessageLogContext &context, const Q
         fprintf(stderr, "%s", fmsg.toLocal8Bit().constData());
 
         if (cgl != nullptr && cgl->logWindow != nullptr)
-            QMetaObject::invokeMethod(cgl->logWindow, "updateMessages");
+            QMetaObject::invokeMethod(cgl->logWindow.data(), &CLogDisplay::updateMessages);
     }
 
     loggerMutex.unlock();
@@ -69,22 +70,15 @@ void stdConsoleOutput(QtMsgType type, const QMessageLogContext &context, const Q
 
 CGlobal::CGlobal(QObject *parent) : QObject(parent)
 {
-    hiveOpenMode = 0;
-    reg = new CRegController(this);
-    logWindow = new CLogDisplay();
+    reg.reset(new CRegController(this));
+    logWindow.reset(new CLogDisplay());
 
     loadSettings();
 }
 
-CGlobal::~CGlobal()
-{
-    if (logWindow != nullptr) {
-        logWindow->setParent(nullptr);
-        delete logWindow;
-    }
-}
+CGlobal::~CGlobal() = default;
 
-bool CGlobal::safeToClose(int idx)
+bool CGlobal::safeToClose(int idx) const
 {
     if (idx >= 0 && idx < reg->getHivesCount()) {
         if (!reg->saveTopHive(idx))
@@ -96,9 +90,10 @@ bool CGlobal::safeToClose(int idx)
 
     writeSettings();
 
-    for (int i = 0; i < reg->getHivesCount(); i++)
+    for (int i = 0; i < reg->getHivesCount(); i++) {
         if (!reg->saveTopHive(i))
             return false;
+    }
 
     while (reg->getHivesCount() > 0)
         reg->closeTopHive(0);
@@ -114,7 +109,7 @@ void CGlobal::loadSettings()
     settings.endGroup();
 }
 
-void CGlobal::writeSettings()
+void CGlobal::writeSettings() const
 {
     QSettings settings("kernel1024", "qregedit");
     settings.beginGroup("Main");
@@ -125,20 +120,22 @@ void CGlobal::writeSettings()
 
 void CGlobal::settingsDialog(QWidget *parent)
 {
-    CSettingsDlg *dlg = new CSettingsDlg(parent);
-    dlg->ui->checkNoAlloc->setChecked(hiveOpenMode & HMODE_NOALLOC);
-    dlg->ui->checkNoExpand->setChecked(hiveOpenMode & HMODE_NOEXPAND);
+    auto *dlg = new CSettingsDlg(parent);
+    dlg->ui->checkNoAlloc->setChecked((hiveOpenMode & HMODE_NOALLOC) != 0);
+    dlg->ui->checkNoExpand->setChecked((hiveOpenMode & HMODE_NOEXPAND) != 0);
 
     if (dlg->exec() == QDialog::Accepted) {
-        if (dlg->ui->checkNoExpand->isChecked())
+        if (dlg->ui->checkNoExpand->isChecked()) {
             hiveOpenMode |= HMODE_NOEXPAND;
-        else
+        } else {
             hiveOpenMode &= ~HMODE_NOEXPAND;
+        }
 
-        if (dlg->ui->checkNoAlloc->isChecked())
+        if (dlg->ui->checkNoAlloc->isChecked()) {
             hiveOpenMode |= HMODE_NOALLOC;
-        else
+        } else {
             hiveOpenMode &= ~HMODE_NOALLOC;
+        }
     }
 
     dlg->deleteLater();
@@ -178,7 +175,9 @@ QStringList getSuffixesFromFilter(const QString &filter)
     return res;
 }
 
-QString getSaveFileNameD ( QWidget *parent, const QString &caption, const QString &dir, const QString &filter, QString *selectedFilter, QFileDialog::Options options, QString preselectFileName )
+QString getSaveFileNameD ( QWidget *parent, const QString &caption, const QString &dir,
+                         const QString &filter, QString *selectedFilter, QFileDialog::Options options,
+                         const QString &preselectFileName )
 {
     QFileDialog d(parent, caption, dir, filter);
     d.setFileMode(QFileDialog::AnyFile);
@@ -187,10 +186,11 @@ QString getSaveFileNameD ( QWidget *parent, const QString &caption, const QStrin
 
     QStringList sl;
 
-    if (selectedFilter != nullptr && !selectedFilter->isEmpty())
+    if (selectedFilter != nullptr && !selectedFilter->isEmpty()) {
         sl = getSuffixesFromFilter(*selectedFilter);
-    else
+    } else {
         sl = getSuffixesFromFilter(filter);
+    }
 
     if (!sl.isEmpty())
         d.setDefaultSuffix(sl.first());
@@ -207,10 +207,8 @@ QString getSaveFileNameD ( QWidget *parent, const QString &caption, const QStrin
 
         if (!d.selectedFiles().isEmpty())
             return d.selectedFiles().first();
-        else
-            return QString();
-    } else
-        return QString();
+    }
+    return QString();
 }
 
 QString	getExistingDirectoryD ( QWidget *parent, const QString &caption, const QString &dir, QFileDialog::Options options )

@@ -14,10 +14,9 @@ CProgressDialog::CProgressDialog(QWidget *parent) :
     setWindowTitle(tr("Registry Editor search"));
     setWindowModality(Qt::WindowModal);
 
-    m_canceled = false;
     connect(ui->buttonCancel,&QPushButton::clicked,[this](){
         m_canceled = true;
-        emit cancel();
+        Q_EMIT cancel();
     });
 }
 
@@ -28,7 +27,7 @@ CProgressDialog::~CProgressDialog()
 
 bool CProgressDialog::wasCanceled()
 {
-    bool c = m_canceled;
+    const bool c = m_canceled;
     m_canceled = false;
     return c;
 }

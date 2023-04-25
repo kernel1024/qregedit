@@ -1,13 +1,12 @@
 #include "global.h"
 #include "sammodel.h"
 
-CSAMGroupsModel::CSAMGroupsModel()
-    : QAbstractItemModel()
+CSAMGroupsModel::CSAMGroupsModel(QObject *parent)
+    : QAbstractItemModel(parent)
 {
-    hive_num = -1;
-    groups_count = 0; // count of top-level items
-
 }
+
+CSAMGroupsModel::~CSAMGroupsModel() = default;
 
 void CSAMGroupsModel::keyChanged(const QModelIndex &key, QTreeView *view)
 {
@@ -28,8 +27,8 @@ void CSAMGroupsModel::keyChanged(const QModelIndex &key, QTreeView *view)
     if (!key.isValid()) return;
 
     // Read new SAM
-    struct nk_key *ck;
-    struct hive *h;
+    struct nk_key *ck = nullptr;
+    struct hive *h = nullptr;
 
     if (!cgl->reg->keyPrepare(key.internalPointer(), h, hive_num, ck)) {
         hive_num = -1;
@@ -68,26 +67,26 @@ QModelIndex CSAMGroupsModel::index(int row, int column, const QModelIndex &paren
         return QModelIndex();
 
     struct hive *h = cgl->reg->getHivePtr(hive_num);
-    QList<CGroup> grps = cgl->reg->listGroups(h);
+    const QList<CGroup> grps = cgl->reg->listGroups(h);
 
     if (!parent.isValid()) { // top-level - group names
         if (row < 0 || row >= grps.count())
             return QModelIndex();
 
         return createIndex(row, column, gid2id(grps.at(row).grpid, -1));
-    } else {
-        qint16 mid;
-        quint16 gid;
-        id2gid(parent.internalId(), gid, mid);
-        int idx = grps.indexOf(CGroup(gid));
-
-        if (idx >= 0) {
-            if (row >= 0 && row < grps.at(idx).members.count())
-                return createIndex(row, column, gid2id(gid, row));
-        }
-
-        return QModelIndex();
     }
+
+    qint16 mid = 0;
+    quint16 gid = 0;
+    id2gid(parent.internalId(), gid, mid);
+    const int idx = grps.indexOf(CGroup(gid));
+
+    if (idx >= 0) {
+        if (row >= 0 && row < grps.at(idx).members.count())
+            return createIndex(row, column, gid2id(gid, row));
+    }
+
+    return QModelIndex();
 }
 
 QModelIndex CSAMGroupsModel::parent(const QModelIndex &child) const
@@ -96,17 +95,17 @@ QModelIndex CSAMGroupsModel::parent(const QModelIndex &child) const
         return QModelIndex();
 
     struct hive *h = cgl->reg->getHivePtr(hive_num);
-    QList<CGroup> grps = cgl->reg->listGroups(h);
+    const QList<CGroup> grps = cgl->reg->listGroups(h);
 
-    qint16 mid;
-    quint16 gid;
+    qint16 mid = 0;
+    quint16 gid = 0;
     id2gid(child.internalId(), gid, mid);
 
     if (mid < 0) // child is top-level item, group
         return QModelIndex();
 
     // child is username, return index of group and group's position
-    int idx = grps.indexOf(CGroup(gid));
+    const int idx = grps.indexOf(CGroup(gid));
 
     if (idx >= 0)
         return createIndex(idx, 0, gid2id(gid, -1));
@@ -120,16 +119,16 @@ int CSAMGroupsModel::rowCount(const QModelIndex &parent) const
         return 0;
 
     struct hive *h = cgl->reg->getHivePtr(hive_num);
-    QList<CGroup> grps = cgl->reg->listGroups(h);
+    const QList<CGroup> grps = cgl->reg->listGroups(h);
 
     if (!parent.isValid())
         return grps.count();
 
-    qint16 mid;
-    quint16 gid;
+    qint16 mid = 0;
+    quint16 gid = 0;
     id2gid(parent.internalId(), gid, mid);
 
-    int idx = grps.indexOf(CGroup(gid));
+    const int idx = grps.indexOf(CGroup(gid));
 
     if (idx >= 0 && mid < 0)
         return grps.at(idx).members.count();
@@ -150,34 +149,35 @@ QVariant CSAMGroupsModel::data(const QModelIndex &index, int role) const
         return QVariant();
 
     struct hive *h = cgl->reg->getHivePtr(hive_num);
-    QList<CGroup> grps = cgl->reg->listGroups(h);
+    const QList<CGroup> grps = cgl->reg->listGroups(h);
 
-    qint16 mid;
-    quint16 gid;
+    qint16 mid = 0;
+    quint16 gid = 0;
     id2gid(index.internalId(), gid, mid);
-    int idx = grps.indexOf(CGroup(gid));
+    const int idx = grps.indexOf(CGroup(gid));
 
     if (role == Qt::DisplayRole) {
         if (idx >= 0) {
             if (mid >= 0) { // username
-                CGroupMember m = grps.at(idx).members.at(mid);
+                const CGroupMember m = grps.at(idx).members.at(mid);
                 return QString("(0x%1) %2 (SID: %3)")
-                       .arg((quint16)m.rid, 3, 16, QChar('0'))
-                       .arg(m.name, m.sid);
-            } else { // group
-                return QString("(0x%1) %2")
-                       .arg((quint16)grps.at(idx).grpid, 3, 16, QChar('0'))
-                       .arg(grps.at(idx).name);
+                    .arg(static_cast<quint16>(m.rid), 3, 16, QChar('0'))
+                    .arg(m.name, m.sid);
             }
+
+            // group
+            return QString("(0x%1) %2")
+                .arg(static_cast<quint16>(grps.at(idx).grpid), 3, 16, QChar('0'))
+                .arg(grps.at(idx).name);
         }
     } else if (role == Qt::StatusTipRole) {
         if (idx >= 0 && mid < 0)
             return grps.at(idx).fullname;
     } else if (role == Qt::DecorationRole && idx >= 0) {
         if (mid >= 0)
-            return QIcon::fromTheme("user-properties");
-        else
-            return QIcon::fromTheme("user-group-properties");
+            return QIcon::fromTheme(QSL("user-properties")); // TODO: move icon to local resources
+
+        return QIcon::fromTheme(QSL("user-group-properties"));
     }
 
     return QVariant();
@@ -191,12 +191,12 @@ Qt::ItemFlags CSAMGroupsModel::flags(const QModelIndex &index) const
     return QAbstractItemModel::flags(index);
 }
 
-CSAMUsersModel::CSAMUsersModel()
-    : QAbstractTableModel()
+CSAMUsersModel::CSAMUsersModel(QObject *parent)
+    : QAbstractTableModel(parent)
 {
-    hive_num = -1;
-    val_count = 0;
 }
+
+CSAMUsersModel::~CSAMUsersModel() = default;
 
 void CSAMUsersModel::keyChanged(const QModelIndex &key, QTableView *view)
 {
@@ -215,8 +215,8 @@ void CSAMUsersModel::keyChanged(const QModelIndex &key, QTableView *view)
     if (!key.isValid()) return;
 
     // Read new SAM
-    struct nk_key *ck;
-    struct hive *h;
+    struct nk_key *ck = nullptr;
+    struct hive *h = nullptr;
 
     if (!cgl->reg->keyPrepare(key.internalPointer(), h, hive_num, ck)) {
         hive_num = -1;
@@ -241,14 +241,14 @@ void CSAMUsersModel::keyChanged(const QModelIndex &key, QTableView *view)
         view->resizeColumnsToContents();
 }
 
-int CSAMUsersModel::getUserRID(const QModelIndex &index)
+int CSAMUsersModel::getUserRID(const QModelIndex &index) const
 {
     if (!index.isValid() || hive_num < 0) return -1;
 
     struct hive *h = cgl->reg->getHivePtr(hive_num);
-    QList<CUser> ul = cgl->reg->listUsers(h);
+    const QList<CUser> ul = cgl->reg->listUsers(h);
 
-    int row = index.row();
+    const int row = index.row();
 
     if  (row < 0 || row >= ul.count()) return -1;
 
@@ -272,9 +272,9 @@ int CSAMUsersModel::columnCount(const QModelIndex &parent) const
 QString bool2string(bool val)
 {
     if (val)
-        return QString("+");
-    else
-        return QString();
+        return QSL("+");
+
+    return QString();
 }
 
 QVariant CSAMUsersModel::data(const QModelIndex &index, int role) const
@@ -284,37 +284,37 @@ QVariant CSAMUsersModel::data(const QModelIndex &index, int role) const
 
     struct hive *h = cgl->reg->getHivePtr(hive_num);
 
-    QList<CUser> ul = cgl->reg->listUsers(h);
+    const QList<CUser> ul = cgl->reg->listUsers(h);
 
-    int row = index.row();
-    int col = index.column();
+    const int row = index.row();
+    const int col = index.column();
 
     if  (row < 0 || row >= ul.count()) return QVariant();
 
-    CUser v = ul.at(row);
+    const CUser &v = ul.at(row);
 
     if (role == Qt::DisplayRole) {
         switch (col) {
-            case 0: // rid
-                return QString("0x%1").arg((quint16)v.rid, 0, 16, QChar('0'));
+        case 0: // rid
+            return QSL("0x%1").arg(static_cast<quint16>(v.rid), 0, 16, QChar('0'));
 
-            case 1: // username
-                return v.username;
+        case 1: // username
+            return v.username;
 
-            case 2: // admin?
-                return bool2string(v.is_admin);
+        case 2: // admin?
+            return bool2string(v.is_admin);
 
-            case 3: // locked?
-                return bool2string(v.is_locked);
+        case 3: // locked?
+            return bool2string(v.is_locked);
 
-            case 4: // no password?
-                return bool2string(v.is_blank_pw);
+        case 4: // no password?
+            return bool2string(v.is_blank_pw);
 
-            case 5: // full name
-                return v.fullname;
+        case 5: // full name
+            return v.fullname;
 
-            default:
-                break;
+        default:
+            break;
         }
     }
 
@@ -332,26 +332,26 @@ QVariant CSAMUsersModel::headerData(int section, Qt::Orientation orientation, in
 {
     if (role == Qt::DisplayRole && orientation == Qt::Horizontal) {
         switch (section) {
-            case 0:
-                return QString("RID");
+        case 0:
+            return tr("RID");
 
-            case 1:
-                return QString("Username");
+        case 1:
+            return tr("Username");
 
-            case 2:
-                return QString("Admin?");
+        case 2:
+            return tr("Admin?");
 
-            case 3:
-                return QString("Locked?");
+        case 3:
+            return tr("Locked?");
 
-            case 4:
-                return QString("No password?");
+        case 4:
+            return tr("No password?");
 
-            case 5:
-                return QString("Full name");
+        case 5:
+            return tr("Full name");
 
-            default:
-                return QVariant();
+        default:
+            return QVariant();
         }
     }
 

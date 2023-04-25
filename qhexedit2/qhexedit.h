@@ -233,7 +233,7 @@ public:
     QString toReadableString();
 
 
-public slots:
+public Q_SLOTS:
     /*! Redoes the last operation. If there is no operation to redo, i.e.
       there is no redo step in the undo/redo history, nothing happens.
       */
@@ -244,7 +244,7 @@ public slots:
       */
     void undo();
 
-signals:
+Q_SIGNALS:
 
     /*! Contains the address, where the cursor is located. */
     void currentAddressChanged(qint64 address);
@@ -321,7 +321,7 @@ private:
     void readBuffers();
     QString toReadable(const QByteArray &ba);
 
-private slots:
+private Q_SLOTS:
     void adjust();                              // recalc pixel positions
     void dataChangedPrivate(int idx=0);        // emit dataChanged() signal
     void refresh();                             // ensureVisible() and readBuffers()

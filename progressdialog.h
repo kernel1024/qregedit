@@ -10,14 +10,15 @@ class CProgressDialog;
 class CProgressDialog : public QDialog
 {
     Q_OBJECT
+    Q_DISABLE_COPY(CProgressDialog)
 
 private:
     Ui::CProgressDialog *ui;
-    bool m_canceled;
+    bool m_canceled { false };
 
 public:
-    explicit CProgressDialog(QWidget *parent = 0);
-    ~CProgressDialog();
+    explicit CProgressDialog(QWidget *parent = nullptr);
+    ~CProgressDialog() override;
 
     bool wasCanceled();
     void setLabelText(const QString& text);
@@ -26,7 +27,7 @@ public:
     void setMaximum(int max);
     void setValue(int value);
 
-signals:
+Q_SIGNALS:
     void cancel();
 
 };

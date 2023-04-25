@@ -11,20 +11,21 @@ class CUserDialog;
 class CUserDialog : public QDialog
 {
     Q_OBJECT
+    Q_DISABLE_COPY(CUserDialog)
 
 public:
-    explicit CUserDialog(QWidget *parent, int hive_idx, int rid);
-    ~CUserDialog();
+    CUserDialog(QWidget *parent, int hive_idx, int rid);
+    ~CUserDialog() override;
 
 private:
     Ui::CUserDialog *ui;
-    int m_rid;
-    CUser* m_user;
-    struct hive* m_hive;
+    int m_rid { 0 };
+    CUser* m_user { nullptr }; // TODO: manage
+    struct hive* m_hive { nullptr };
 
     void reloadUserInfo();
 
-public slots:
+public Q_SLOTS:
     void unlockAccount();
     void promoteUser();
     void clearPassword();

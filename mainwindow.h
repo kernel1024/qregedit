@@ -16,29 +16,33 @@ class MainWindow;
 class CMainWindow : public QMainWindow
 {
     Q_OBJECT
+    Q_DISABLE_COPY(CMainWindow)
 
 public:
-    explicit CMainWindow(QWidget *parent = 0);
-    ~CMainWindow();
+    explicit CMainWindow(QWidget *parent = nullptr);
+    ~CMainWindow() override;
 
     void centerWindow();
+
 private:
     Ui::MainWindow *ui;
+
+    // TODO: manage these pointers
     CRegistryModel *treeModel;
     CValuesModel *valuesModel;
     CSAMGroupsModel *groupsModel;
     CSAMUsersModel *usersModel;
     QSortFilterProxyModel *valuesSortModel;
     CProgressDialog *searchProgressDialog;
-    void treeCtxMenuPrivate(const QPoint& pos, const bool fromValuesTable);
+    void treeCtxMenuPrivate(const QPoint& pos, bool fromValuesTable);
 
 protected:
-    void closeEvent(QCloseEvent *event);
+    void closeEvent(QCloseEvent *event) override;
 
-signals:
+Q_SIGNALS:
     void startSearch(const QModelIndex &idx, const QString &text);
 
-public slots:
+public Q_SLOTS:
     void openHive();
     void importReg();
     void showValues(const QModelIndex& key);

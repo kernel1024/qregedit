@@ -1,9 +1,16 @@
-QT       += core gui widgets core5compat
+QT       += core gui widgets
 
 TARGET = qregedit
 TEMPLATE = app
 
-CONFIG += warn_on link_pkgconfig c++11
+CONFIG += warn_on link_pkgconfig c++17
+
+# warn on *any* usage of deprecated APIs
+DEFINES += QT_DEPRECATED_WARNINGS
+# ... and just fail to compile if APIs deprecated in Qt <= 5.15 are used
+#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x050F00
+
+DEFINES += QT_NO_KEYWORDS QT_NO_CAST_TO_ASCII QT_NO_CAST_FROM_BYTEARRAY
 
 SOURCES += main.cpp\
         mainwindow.cpp \

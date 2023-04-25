@@ -9,7 +9,6 @@ CValueEditor::CValueEditor(QWidget *parent, int createType, const QModelIndex& i
     QDialog(parent),
     ui(new Ui::CValueEditor)
 {
-    m_initFailure = true;
     ui->setupUi(this);
 
     ui->spinDWORD->setMinimum(INT_MIN);
@@ -26,11 +25,11 @@ CValueEditor::CValueEditor(QWidget *parent, int createType, const QModelIndex& i
     hexEditor->setOverwriteMode(false);
 
     // various event handlers
-    connect(ui->radioDWORD10,&QRadioButton::toggled,[this](bool checked){
-       if (checked) ui->spinDWORD->setDisplayIntegerBase(10);
+    connect(ui->radioDWORD10,&QRadioButton::toggled,this,[this](bool checked){
+        if (checked) ui->spinDWORD->setDisplayIntegerBase(10);
     });
-    connect(ui->radioDWORD16,&QRadioButton::toggled,[this](bool checked){
-       if (checked) ui->spinDWORD->setDisplayIntegerBase(16);
+    connect(ui->radioDWORD16,&QRadioButton::toggled,this,[this](bool checked){
+        if (checked) ui->spinDWORD->setDisplayIntegerBase(16);
     });
 
     if (cgl==nullptr || !cgl->reg->valuesModel) return;
@@ -60,33 +59,34 @@ CValueEditor::~CValueEditor()
 void CValueEditor::saveValue()
 {
     if ((!valueIndex.isValid() && (m_createType==REG_NONE))
-            || cgl==nullptr || !cgl->reg->valuesModel) return;
+        || cgl==nullptr || !cgl->reg->valuesModel) return;
 
     if (m_createType!=REG_NONE)
         m_value.name = ui->editValueName->text();
 
     switch (m_value.type) {
-        case REG_DWORD:
-            m_value.vDWORD = ui->spinDWORD->value();
-            break;
-        case REG_SZ:
-        case REG_EXPAND_SZ:
-            m_value.vString = ui->editString->text();
-            break;
-        case REG_MULTI_SZ:
-            m_value.vString = ui->editMultiString->toPlainText();
-            break;
-        default:
-            m_value.vOther = hexEditor->data();
-            break;
+    case REG_DWORD:
+        m_value.vDWORD = ui->spinDWORD->value();
+        break;
+    case REG_SZ:
+    case REG_EXPAND_SZ:
+        m_value.vString = ui->editString->text();
+        break;
+    case REG_MULTI_SZ:
+        m_value.vString = ui->editMultiString->toPlainText();
+        break;
+    default:
+        m_value.vOther = hexEditor->data();
+        break;
     }
 
-    if (m_createType==REG_NONE)
+    if (m_createType==REG_NONE) {
         if (!cgl->reg->valuesModel->setValue(valueIndex,m_value)) {
             QMessageBox::critical(this,tr("Registry Editor - Error"),tr("Failed to change value '%1'.")
-                                  .arg(m_value.name));
+                                                                           .arg(m_value.name));
             return;
         }
+    }
 
     accept();
 }
@@ -97,22 +97,22 @@ void CValueEditor::prepareWidgets()
     ui->labelType->setText(cgl->reg->getValueTypeStr(m_value.type));
 
     switch (m_value.type) {
-        case REG_DWORD:
-            ui->stack->setCurrentWidget(ui->page_dword);
-            ui->spinDWORD->setValue(m_value.vDWORD);
-            break;
-        case REG_SZ:
-        case REG_EXPAND_SZ:
-            ui->stack->setCurrentWidget(ui->page_sz);
-            ui->editString->setText(m_value.vString);
-            break;
-        case REG_MULTI_SZ:
-            ui->stack->setCurrentWidget(ui->page_multisz);
-            ui->editMultiString->setPlainText(m_value.vString);
-            break;
-        default:
-            ui->stack->setCurrentWidget(ui->page_hex);
-            hexEditor->setData(m_value.vOther);
-            break;
+    case REG_DWORD:
+        ui->stack->setCurrentWidget(ui->page_dword);
+        ui->spinDWORD->setValue(m_value.vDWORD);
+        break;
+    case REG_SZ:
+    case REG_EXPAND_SZ:
+        ui->stack->setCurrentWidget(ui->page_sz);
+        ui->editString->setText(m_value.vString);
+        break;
+    case REG_MULTI_SZ:
+        ui->stack->setCurrentWidget(ui->page_multisz);
+        ui->editMultiString->setPlainText(m_value.vString);
+        break;
+    default:
+        ui->stack->setCurrentWidget(ui->page_hex);
+        hexEditor->setData(m_value.vOther);
+        break;
     }
 }

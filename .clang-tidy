@@ -1,0 +1,40 @@
+Checks:          '-*,bugprone-*,cppcoreguidelines-*,misc-*,performance-*,readability-*,modernize-*,hicpp-*,google-readability-casting,
+-hicpp-no-array-decay,
+-cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+-cppcoreguidelines-pro-type-reinterpret-cast,
+-cppcoreguidelines-pro-type-const-cast,
+-cppcoreguidelines-owning-memory,
+-modernize-return-braced-init-list,
+-modernize-use-trailing-return-type,
+-modernize-pass-by-value,
+-misc-no-recursion,
+-readability-convert-member-functions-to-static,
+-readability-function-cognitive-complexity,
+-readability-identifier-length,
+-modernize-use-nodiscard,
+-readability-redundant-access-specifiers,
+-bugprone-easily-swappable-parameters'
+
+CheckOptions:    
+  - key:             cppcoreguidelines-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+    value:           '1'
+  - key:             misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+    value:           '1'
+  - key:             cppcoreguidelines-special-member-functions.AllowMissingMoveFunctions
+    value:           '1'
+  - key:             hicpp-special-member-functions.AllowMissingMoveFunctions
+    value:           '1'
+  - key:             readability-implicit-bool-conversion.AllowPointerConditions
+    value:           '1'
+  - key:             readability-braces-around-statements.ShortStatementLines
+    value:           '2'
+  - key:             hicpp-braces-around-statements.ShortStatementLines
+    value:           '2'
+  - key:             readability-magic-numbers.IgnoredIntegerValues
+    value:           '0;1;2;3;4;5;6;100'
+  - key:             cppcoreguidelines-avoid-magic-numbers.IgnoredIntegerValues
+    value:           '0;1;2;3;4;5;6;100'
+  - key:             hicpp-function-size.StatementThreshold
+    value:           '2000'
+  - key:             readability-function-size.StatementThreshold
+    value:           '2000'

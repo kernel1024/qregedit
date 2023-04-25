@@ -2,6 +2,7 @@
 #define REGISTRYMODEL_H
 
 #include <QAbstractItemModel>
+#include <QScopedPointer>
 #include <QTableView>
 #include <QVector>
 #include <QString>
@@ -14,14 +15,13 @@ struct nk_key;
 class CRegistryModel : public QAbstractItemModel
 {
     Q_OBJECT
-
-private:
-    QModelIndex getKeyIndex(struct hive *hdesc, struct nk_key *key);
+    Q_DISABLE_COPY(CRegistryModel)
 
 public:
-    CFinder* finder;
+    QScopedPointer<CFinder> finder;
 
-    CRegistryModel();
+    explicit CRegistryModel(QObject *parent = nullptr);
+    ~CRegistryModel() override;
 
     void beginInsertRows(const QModelIndex &parent, int first, int last);
     void endInsertRows();
@@ -35,18 +35,21 @@ public:
 
     bool exportKey(const QModelIndex &idx, const QString& filename);
 
-protected:
-    QModelIndex index(int row, int column, const QModelIndex &parent) const;
-    QModelIndex parent(const QModelIndex &child) const;
-    int rowCount(const QModelIndex &parent) const;
-    int columnCount(const QModelIndex &parent) const;
-    QVariant data(const QModelIndex &index, int role) const;
-    Qt::ItemFlags flags(const QModelIndex &index) const;
+private:
+    QModelIndex getKeyIndex(struct hive *hdesc, struct nk_key *key);
 
-signals:
+protected:
+    QModelIndex index(int row, int column, const QModelIndex &parent) const override;
+    QModelIndex parent(const QModelIndex &child) const override;
+    int rowCount(const QModelIndex &parent) const override;
+    int columnCount(const QModelIndex &parent) const override;
+    QVariant data(const QModelIndex &index, int role) const override;
+    Qt::ItemFlags flags(const QModelIndex &index) const override;
+
+Q_SIGNALS:
     void keyFound(const QModelIndex &index, const QString &value);
 
-private slots:
+private Q_SLOTS:
     void finderKeyFound(struct hive *hdesc, struct nk_key *key, const QString &value);
 
 };
@@ -54,14 +57,17 @@ private slots:
 class CValuesModel : public QAbstractTableModel
 {
     Q_OBJECT
+    Q_DISABLE_COPY(CValuesModel)
+
 private:
-    int val_count;
-    int key_ofs;
-    int hive_num;
+    int val_count { 0 };
+    int key_ofs { -1 };
+    int hive_num { -1 };
     QString m_keyName;
 
 public:
-    CValuesModel();
+    explicit CValuesModel(QObject *parent = nullptr);
+    ~CValuesModel() override;
 
     void keyChanged(const QModelIndex& key, QTableView *table);
     QString getCurrentKeyName() { return m_keyName; }
@@ -69,8 +75,8 @@ public:
     bool renameValue(const QModelIndex &idx, const QString& name);
     bool deleteValue(const QModelIndex &idx);
 
-    QString getValueName(const QModelIndex& idx);
-    CValue getValue(const QModelIndex& idx);
+    QString getValueName(const QModelIndex &idx) const;
+    CValue getValue(const QModelIndex &idx) const;
     QModelIndex getValueIdx(const QString& name) const;
 
     bool setValue(const QModelIndex& idx, const CValue& value);
@@ -78,11 +84,11 @@ public:
     bool createValue(const CValue& value);
 
 protected:
-    int rowCount(const QModelIndex &parent) const;
-    int columnCount(const QModelIndex &parent) const;
-    QVariant data(const QModelIndex &index, int role) const;
-    Qt::ItemFlags flags(const QModelIndex &index) const;
-    QVariant headerData(int section, Qt::Orientation orientation, int role) const;
+    int rowCount(const QModelIndex &parent) const override;
+    int columnCount(const QModelIndex &parent) const override;
+    QVariant data(const QModelIndex &index, int role) const override;
+    Qt::ItemFlags flags(const QModelIndex &index) const override;
+    QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
 };
 
 #endif // REGISTRYMODEL_H

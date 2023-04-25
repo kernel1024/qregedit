@@ -156,7 +156,7 @@ void QHexEdit::setCursorPosition(qint64 position)
     // 4. Immiadately draw new cursor
     _blink = true;
     viewport()->update(_cursorRect);
-    emit currentAddressChanged(_bPosCurrent);
+    Q_EMIT currentAddressChanged(_bPosCurrent);
 }
 
 qint64 QHexEdit::cursorPosition(QPoint pos)
@@ -218,7 +218,7 @@ QColor QHexEdit::highlightingColor()
 void QHexEdit::setOverwriteMode(bool overwriteMode)
 {
     _overwriteMode = overwriteMode;
-    emit overwriteModeChanged(overwriteMode);
+    Q_EMIT overwriteModeChanged(overwriteMode);
 }
 
 bool QHexEdit::overwriteMode()
@@ -866,7 +866,7 @@ void QHexEdit::paintEvent(QPaintEvent *event)
     if (_lastEventSize != _chunks->size())
     {
         _lastEventSize = _chunks->size();
-        emit currentSizeChanged(_lastEventSize);
+        Q_EMIT currentSizeChanged(_lastEventSize);
     }
 }
 
@@ -984,7 +984,7 @@ void QHexEdit::dataChangedPrivate(int)
 {
     _modified = _undoStack->index() != 0;
     adjust();
-    emit dataChanged();
+    Q_EMIT dataChanged();
 }
 
 void QHexEdit::refresh()

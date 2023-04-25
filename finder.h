@@ -5,7 +5,6 @@
 #include <QList>
 #include <QString>
 #include <QModelIndex>
-#include "progressdialog.h"
 
 struct hive;
 struct nk_key;
@@ -13,23 +12,26 @@ struct nk_key;
 class CFinder : public QObject
 {
     Q_OBJECT
+    Q_DISABLE_COPY(CFinder)
+
 private:
-    int searchHive;
+    int searchHive { -1 };
+    int searchLastKeyIdx { -1 };
+    bool m_canceled { false };
     QList<int> searchKeysOfsFlat;
-    int searchLastKeyIdx;
     QString searchString;
-    bool m_canceled;
 
 public:
-    explicit CFinder(QObject *parent = 0);
+    explicit CFinder(QObject *parent = nullptr);
+    ~CFinder() override;
     void hiveChanged(const QModelIndex &idx);
     void cancelSearch() { m_canceled = true; }
 
-public slots:
+public Q_SLOTS:
     void searchText(const QModelIndex& idx, const QString& text);
     void continueSearch();
 
-signals:
+Q_SIGNALS:
     void keyFound(struct hive *hdesc, struct nk_key *key, const QString &value);
     void searchFinished();
 

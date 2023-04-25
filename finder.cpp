@@ -8,23 +8,24 @@ CFinder::CFinder(QObject *parent)
     : QObject(parent)
 {
     hiveChanged(QModelIndex());
-    m_canceled = false;
 }
+
+CFinder::~CFinder() = default;
 
 void CFinder::searchText(const QModelIndex &idx, const QString &text)
 {
     if (!idx.isValid() || text.isEmpty()) {
         hiveChanged(QModelIndex());
-        emit searchFinished();
+        Q_EMIT searchFinished();
         return;
     }
 
-    struct nk_key* k;
-    struct hive* h;
-    int hive;
+    struct nk_key* k = nullptr;
+    struct hive* h = nullptr;
+    int hive = 0;
     if (!cgl->reg->keyPrepare(idx.internalPointer(),h,hive,k)) {
         hiveChanged(QModelIndex());
-        emit searchFinished();
+        Q_EMIT searchFinished();
         return;
     }
 
@@ -47,53 +48,54 @@ void CFinder::continueSearch()
         return;
     }
 
-    emit showProgressDialog();
+    Q_EMIT showProgressDialog();
     QThread::msleep(250);
 
-    bool iok;
-    quint32 snum = searchString.toUInt(&iok);
+    bool iok = false;
+    const quint32 snum = searchString.toUInt(&iok);
 
     while (true) {
         searchLastKeyIdx++;
         if (searchLastKeyIdx>=searchKeysOfsFlat.count()) {
             searchLastKeyIdx=-1;
-            emit hideProgressDialog();
-            emit searchFinished();
+            Q_EMIT hideProgressDialog();
+            Q_EMIT searchFinished();
             return;
         }
 
         struct nk_key *k = cgl->reg->getKeyPtr(h,searchKeysOfsFlat.at(searchLastKeyIdx));
         if (cgl->reg->getKeyName(h,k).contains(searchString,Qt::CaseInsensitive)) {
-            emit hideProgressDialog();
-            emit keyFound(h, k,QString());
+            Q_EMIT hideProgressDialog();
+            Q_EMIT keyFound(h, k,QString());
             return;
         }
 
-        QList<CValue> vl = cgl->reg->listValues(h, k);
-        foreach (const CValue v, vl)
+        const QList<CValue> vl = cgl->reg->listValues(h, k);
+        for(const auto &v : vl) {
             if (v.name.contains(searchString,Qt::CaseInsensitive) ||
                     v.vString.contains(searchString,Qt::CaseInsensitive) ||
                     v.vOther.contains(searchString.toUtf8()) ||
                     ((v.type==REG_DWORD)&&iok&&(v.vDWORD==snum)))
             {
-                emit hideProgressDialog();
-                emit keyFound(h, k, v.name);
+                Q_EMIT hideProgressDialog();
+                Q_EMIT keyFound(h, k, v.name);
                 return;
             }
+        }
 
         QApplication::processEvents();
         if (m_canceled)
             break;
     }
-    emit hideProgressDialog();
+    Q_EMIT hideProgressDialog();
 }
 
 void CFinder::hiveChanged(const QModelIndex &idx)
 {
     if (idx.isValid()) {
-        struct nk_key* ck;
-        struct hive* h;
-        int hive;
+        struct nk_key* ck = nullptr;
+        struct hive* h = nullptr;
+        int hive = 0;
         if (cgl->reg->keyPrepare(idx.internalPointer(),h,hive,ck))
             if (searchHive!=hive) return;
     }
