@@ -2,6 +2,7 @@
 #include <QPushButton>
 #include <QDebug>
 
+#include "global.h"
 #include "userdialog.h"
 #include "ui_userdialog.h"
 #include "ui_listdialog.h"
@@ -55,9 +56,6 @@ CUserDialog::CUserDialog(QWidget *parent, int hive_idx, int rid) :
 
 CUserDialog::~CUserDialog()
 {
-    if (m_user!=nullptr)
-        delete m_user;
-    m_user = nullptr;
     delete ui;
 }
 
@@ -77,9 +75,7 @@ void CUserDialog::reloadUserInfo()
         return;
     }
 
-    if (m_user!=nullptr)
-        delete m_user;
-    m_user = new CUser(ul.at(uidx));
+    m_user.reset(new CUser(ul.at(uidx)));
     ui->editRID->setText(
         QSL("0x%1 (%2)").arg(static_cast<quint16>(m_user->rid), 3, 16, QChar('0')).arg(m_user->rid));
     ui->editRID->setCursorPosition(0);
@@ -138,7 +134,7 @@ void CUserDialog::reloadUserInfo()
 
 void CUserDialog::unlockAccount()
 {
-    if (m_hive==nullptr || m_user==nullptr) {
+    if (m_hive==nullptr || m_user.isNull()) {
         QMessageBox::critical(this,tr("QRegEdit error"),
                               tr("User data not loaded."));
         return;
@@ -164,7 +160,7 @@ void CUserDialog::unlockAccount()
 
 void CUserDialog::promoteUser()
 {
-    if (m_hive==nullptr || m_user==nullptr) {
+    if (m_hive==nullptr || m_user.isNull()) {
         QMessageBox::critical(this,tr("QRegEdit error"),
                               tr("User data not loaded."));
         return;
@@ -200,7 +196,7 @@ void CUserDialog::promoteUser()
 
 void CUserDialog::clearPassword()
 {
-    if (m_hive==nullptr || m_user==nullptr) {
+    if (m_hive==nullptr || m_user.isNull()) {
         QMessageBox::critical(this,tr("QRegEdit error"),
                               tr("User data not loaded."));
         return;
@@ -225,7 +221,7 @@ void CUserDialog::clearPassword()
 
 void CUserDialog::addToGroup()
 {
-    if (m_hive==nullptr || m_user==nullptr) {
+    if (m_hive==nullptr || m_user.isNull()) {
         QMessageBox::critical(this,tr("QRegEdit error"), tr("User data not loaded."));
         return;
     }
@@ -256,7 +252,7 @@ void CUserDialog::addToGroup()
 
 void CUserDialog::removeFromGroup()
 {
-    if (m_hive==nullptr || m_user==nullptr) {
+    if (m_hive==nullptr || m_user.isNull()) {
         QMessageBox::critical(this,tr("QRegEdit error"),
                               tr("User data not loaded."));
         return;

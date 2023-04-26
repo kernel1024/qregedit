@@ -66,7 +66,8 @@ void CFinder::continueSearch()
         struct nk_key *k = cgl->reg->getKeyPtr(h,searchKeysOfsFlat.at(searchLastKeyIdx));
         if (cgl->reg->getKeyName(h,k).contains(searchString,Qt::CaseInsensitive)) {
             Q_EMIT hideProgressDialog();
-            Q_EMIT keyFound(h, k,QString());
+            Q_EMIT keyFound(reinterpret_cast<quintptr>(h),
+                            reinterpret_cast<quintptr>(k), QString());
             return;
         }
 
@@ -78,7 +79,8 @@ void CFinder::continueSearch()
                     ((v.type==REG_DWORD)&&iok&&(v.vDWORD==snum)))
             {
                 Q_EMIT hideProgressDialog();
-                Q_EMIT keyFound(h, k, v.name);
+                Q_EMIT keyFound(reinterpret_cast<quintptr>(h),
+                                reinterpret_cast<quintptr>(k), v.name);
                 return;
             }
         }
@@ -88,6 +90,12 @@ void CFinder::continueSearch()
             break;
     }
     Q_EMIT hideProgressDialog();
+}
+
+void CFinder::destroyFinder()
+{
+    m_canceled = true;
+    Q_EMIT requestToDestroy();
 }
 
 void CFinder::hiveChanged(const QModelIndex &idx)

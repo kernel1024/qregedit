@@ -13,7 +13,7 @@ CLogDisplay::CLogDisplay(QWidget *parent) :
     ui->setupUi(this);
     syntax = new CSpecLogHighlighter(ui->logView->document());
 
-    updateMessages();
+    updateMessages(QString());
 }
 
 CLogDisplay::~CLogDisplay()
@@ -21,27 +21,22 @@ CLogDisplay::~CLogDisplay()
     delete ui;
 }
 
-void CLogDisplay::updateMessages()
+void CLogDisplay::updateMessages(const QString &message)
 {
+    if (!message.isEmpty())
+        debugMessages.append(message);
+
+    while (debugMessages.count() > 5000)
+        debugMessages.removeFirst();
+
     if (!isVisible()) return;
 
-    int fr = -1;
     int sv = -1;
 
     if (ui->logView->verticalScrollBar() != nullptr)
         sv = ui->logView->verticalScrollBar()->value();
 
-    if (!savedMessages.isEmpty())
-        fr = debugMessages.lastIndexOf(savedMessages.last());
-
-    if (fr >= 0 && fr < debugMessages.count()) {
-        for (int i = (fr + 1); i < debugMessages.count(); i++)
-            savedMessages << debugMessages.at(i);
-    } else {
-        savedMessages = debugMessages;
-    }
-
-    updateText(savedMessages.join('\n'));
+    updateText(debugMessages.join('\n'));
 
     if (ui->logView->verticalScrollBar() != nullptr) {
         if (!ui->checkScrollLock->isChecked()) {
@@ -61,7 +56,7 @@ void CLogDisplay::showEvent(QShowEvent *event)
 {
     Q_UNUSED(event)
 
-    updateMessages();
+    updateMessages(QString());
 
     if (firstShow && QApplication::activeWindow() != nullptr) {
         QPoint p = QApplication::activeWindow()->pos();

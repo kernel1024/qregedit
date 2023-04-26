@@ -27,11 +27,13 @@ private:
 
 CharCommand::CharCommand(Chunks * chunks, CCmd cmd, qint64 charPos, char newChar, QUndoCommand *parent)
     : QUndoCommand(parent)
+    , _chunks(chunks)
+    , _charPos(charPos)
+    , _wasChanged(false)
+    , _newChar(newChar)
+    , _oldChar('\0')
+    , _cmd(cmd)
 {
-    _chunks = chunks;
-    _charPos = charPos;
-    _newChar = newChar;
-    _cmd = cmd;
 }
 
 bool CharCommand::mergeWith(const QUndoCommand *command)
@@ -94,6 +96,7 @@ UndoStack::UndoStack(Chunks * chunks, QObject * parent)
 {
     _chunks = chunks;
     _parent = parent;
+    this->setUndoLimit(1000);
 }
 
 void UndoStack::insert(qint64 pos, char c)

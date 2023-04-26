@@ -4,7 +4,6 @@
 
 int main(int argc, char *argv[])
 {
-    debugMessages.clear();
     qInstallMessageHandler(stdConsoleOutput);
 
     QApplication a(argc, argv);

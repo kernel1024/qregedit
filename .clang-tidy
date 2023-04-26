@@ -13,7 +13,9 @@ Checks:          '-*,bugprone-*,cppcoreguidelines-*,misc-*,performance-*,readabi
 -readability-identifier-length,
 -modernize-use-nodiscard,
 -readability-redundant-access-specifiers,
--bugprone-easily-swappable-parameters'
+-bugprone-easily-swappable-parameters,
+-cppcoreguidelines-avoid-magic-numbers,
+-hicpp-signed-bitwise'
 
 CheckOptions:    
   - key:             cppcoreguidelines-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic

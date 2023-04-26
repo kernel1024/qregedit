@@ -29,8 +29,8 @@ CMainWindow::CMainWindow(QWidget *parent) :
     valuesModel = new CValuesModel(this);
     groupsModel = new CSAMGroupsModel(this);
     usersModel = new CSAMUsersModel(this);
-
     valuesSortModel = new QSortFilterProxyModel(this);
+
     valuesSortModel->setSourceModel(valuesModel);
     ui->treeHives->setModel(treeModel);
     ui->tableValues->setModel(valuesSortModel);
@@ -81,6 +81,14 @@ CMainWindow::CMainWindow(QWidget *parent) :
     connect(ui->tableValues, &QTableView::activated,
             this, &CMainWindow::valuesModify);
 
+    connect(valuesModel,&CValuesModel::valuesReloaded,this,[this](){
+        ui->tableValues->resizeColumnsToContents();
+        ui->tableValues->sortByColumn(0, Qt::AscendingOrder);
+    });
+    connect(usersModel,&CSAMUsersModel::valuesReloaded,this,[this](){
+        ui->tableUsers->resizeColumnsToContents();
+    });
+
     connect(ui->tableUsers, &QTableView::activated,
             this, &CMainWindow::editUser);
 
@@ -121,7 +129,7 @@ CMainWindow::~CMainWindow()
 
 void CMainWindow::centerWindow()
 {
-    const int initialHeightFrac = 80;
+    const int initialHeightFrac = 70;
     const int initialWidthFrac = 135;
     const int maxWidth = 1000;
     const int maxWidthFrac = 80;
@@ -140,6 +148,9 @@ void CMainWindow::centerWindow()
     const int h = initialHeightFrac*rect.height()/100;
     QSize nw(initialWidthFrac*h/100,h);
     if (nw.width()<maxWidth) nw.setWidth(maxWidthFrac*rect.width()/100);
+    resize(nw);
+    move(rect.width()/2 - frameGeometry().width()/2,
+         rect.height()/2 - frameGeometry().height()/2);
 }
 
 void CMainWindow::closeEvent(QCloseEvent *event)
@@ -198,7 +209,7 @@ void CMainWindow::importReg()
 
 void CMainWindow::showValues(const QModelIndex &key)
 {
-    valuesModel->keyChanged(key, ui->tableValues);
+    valuesModel->keyChanged(key);
 
     const int idx = treeModel->getHiveIdx(ui->treeHives->currentIndex());
     bool vis = false;
@@ -210,8 +221,8 @@ void CMainWindow::showValues(const QModelIndex &key)
 
     if (vis) {
         ui->tabSAM->show();
-        groupsModel->keyChanged(key, ui->treeGroups);
-        usersModel->keyChanged(key, ui->tableUsers);
+        groupsModel->keyChanged(key);
+        usersModel->keyChanged(key);
     } else
         ui->tabSAM->hide();
 }
@@ -220,9 +231,9 @@ void CMainWindow::hivePrepareClose(int idx)
 {
     Q_UNUSED(idx)
 
-    valuesModel->keyChanged(QModelIndex(), ui->tableValues);
-    groupsModel->keyChanged(QModelIndex(), ui->treeGroups);
-    usersModel->keyChanged(QModelIndex(), ui->tableUsers);
+    valuesModel->keyChanged(QModelIndex());
+    groupsModel->keyChanged(QModelIndex());
+    usersModel->keyChanged(QModelIndex());
     ui->tabSAM->hide();
 }
 
@@ -278,7 +289,7 @@ void CMainWindow::treeCtxMenuPrivate(const QPoint &pos, bool fromValuesTable)
         if (idx.parent().isValid()) {
             connect(acm, &QAction::triggered, [this, idx]() {
                 treeModel->deleteKey(idx);
-                valuesModel->keyChanged(QModelIndex(), ui->tableValues);
+                valuesModel->keyChanged(QModelIndex());
             });
         } else
             acm->setEnabled(false);
@@ -436,7 +447,7 @@ void CMainWindow::about()
 {
     QMessageBox::about(this, tr("About"),
                        tr("Windows registry editor, written with Qt.\n" \
-                          "(c) kernel1024, 2016, GPL v2\n\n" \
+                          "(c) kernel1024, 2016 - 2023, GPL v2\n\n" \
                           "Code parts:\n" \
                           "chntpw %1, LGPL v2.1\n" \
                           "QHexEdit widget (c) Winfried Simon, LGPL v2.1")

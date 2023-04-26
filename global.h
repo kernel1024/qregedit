@@ -4,13 +4,12 @@
 #include <QObject>
 #include <QFileDialog>
 #include <QStringList>
+#include <QPointer>
 #include <QScopedPointer>
 #include "logdisplay.h"
 #include "regutils.h"
 
 #define QSL QStringLiteral
-
-extern QStringList debugMessages;
 
 class CGlobal : public QObject {
     Q_OBJECT
@@ -32,7 +31,7 @@ public:
     void settingsDialog(QWidget *parent = nullptr);
 };
 
-extern CGlobal *cgl;
+extern QPointer<CGlobal> cgl;
 
 void stdConsoleOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg);
 

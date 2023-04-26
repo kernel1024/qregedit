@@ -19,19 +19,26 @@ CRegistryModel::CRegistryModel(QObject *parent)
 {
     cgl->reg->treeModel = this;
 
-    finder.reset(new CFinder(nullptr));
+    finder = new CFinder(nullptr);
 
     connect(finder.data(), &CFinder::keyFound, this,
             &CRegistryModel::finderKeyFound, Qt::QueuedConnection);
 
     auto *th = new QThread();
     finder->moveToThread(th);
-    th->start();
 
-    // BUG: thread pointer lost, memory leak
+    connect(this,&CRegistryModel::destroyFinder,finder.data(),&CFinder::destroyFinder);
+    connect(finder.data(),&CFinder::requestToDestroy,th,&QThread::quit);
+    connect(th,&QThread::finished,finder.data(),&CFinder::deleteLater);
+    connect(th,&QThread::finished,th,&QThread::deleteLater);
+
+    th->start();
 }
 
-CRegistryModel::~CRegistryModel() = default;
+CRegistryModel::~CRegistryModel()
+{
+    Q_EMIT destroyFinder();
+}
 
 void CRegistryModel::beginInsertRows(const QModelIndex &parent, int first, int last)
 {
@@ -177,7 +184,7 @@ QVariant CRegistryModel::data(const QModelIndex &index, int role) const
             return s;
 
     } else if (role == Qt::DecorationRole) {
-        return QIcon::fromTheme("folder");
+        return QIcon(QSL(":/icons/folder"));
 
     } else if (role == Qt::StatusTipRole) {
         const QString s = QSL("\\") + cgl->reg->getKeyFullPath(h, k);
@@ -327,9 +334,10 @@ QModelIndex CRegistryModel::getKeyIndex(struct hive *hdesc, struct nk_key *key)
     return idx;
 }
 
-void CRegistryModel::finderKeyFound(struct hive *hdesc, struct nk_key *key, const QString &value)
+void CRegistryModel::finderKeyFound(quintptr hdesc, quintptr key, const QString &value)
 {
-    Q_EMIT keyFound(getKeyIndex(hdesc, key), value);
+    Q_EMIT keyFound(getKeyIndex(reinterpret_cast<struct hive *>(hdesc),
+                                reinterpret_cast<struct nk_key *>(key)), value);
 }
 
 CValuesModel::CValuesModel(QObject *parent)
@@ -340,7 +348,16 @@ CValuesModel::CValuesModel(QObject *parent)
 
 CValuesModel::~CValuesModel() = default;
 
-void CValuesModel::keyChanged(const QModelIndex &key, QTableView *table)
+void CValuesModel::keyChanged(const QModelIndex &key)
+{
+    void *keyPtr = nullptr;
+    if (key.isValid())
+        keyPtr = key.internalPointer();
+
+    reloadKey(keyPtr);
+}
+
+void CValuesModel::reloadKey(void* newKey)
 {
     // Close old key
     if (hive_num >= 0 && key_ofs >= 0) {
@@ -352,20 +369,22 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView *table)
         hive_num = -1;
         key_ofs = -1;
         val_count = 0;
+        key_ptr = nullptr;
         m_keyName.clear();
     }
 
     // Exit if no valid key passed
-    if (!key.isValid()) return;
+    if (newKey == nullptr) return;
 
     // Read new key
     struct nk_key *ck = nullptr;
     struct hive *h = nullptr;
 
-    if (!cgl->reg->keyPrepare(key.internalPointer(), h, hive_num, ck)) {
+    if (!cgl->reg->keyPrepare(newKey, h, hive_num, ck)) {
         hive_num = -1;
         key_ofs = -1;
         val_count = 0;
+        key_ptr = nullptr;
         m_keyName.clear();
         return;
     }
@@ -373,16 +392,14 @@ void CValuesModel::keyChanged(const QModelIndex &key, QTableView *table)
     key_ofs = cgl->reg->getKeyOfs(h, ck);
     m_keyName = cgl->reg->getKeyFullPath(h, ck);
     val_count = cgl->reg->listValues(h, ck).count();
+    key_ptr = newKey;
 
     if (val_count > 0) {
         beginInsertRows(QModelIndex(), 0, val_count - 1);
         endInsertRows();
     }
 
-    if (table != nullptr) {
-        table->resizeColumnsToContents();
-        table->sortByColumn(0, Qt::AscendingOrder);
-    }
+    Q_EMIT valuesReloaded();
 }
 
 bool CValuesModel::renameValue(const QModelIndex &idx, const QString &name)
@@ -503,18 +520,15 @@ bool CValuesModel::createValue(const CValue &value)
     struct hive *h = cgl->reg->getHivePtr(hive_num);
     struct nk_key *k = cgl->reg->getKeyPtr(h, key_ofs);
 
-    beginInsertRows(QModelIndex(), rowCount(QModelIndex()), rowCount(QModelIndex()));
-    // FIXME: value inserts in the middle of model... empty line at bottom of the list
+    bool success = false;
+    if (cgl->reg->createValue(h, k, value.type, value.name))
+        success = cgl->reg->setValue(h, k, value);
 
-
-    if (cgl->reg->createValue(h, k, value.type, value.name)) {
-        if (cgl->reg->setValue(h, k, value)) {
-            endInsertRows();
-            return true;
-        }
+    if (success) {
+        reloadKey(key_ptr);
+        return true;
     }
 
-    endInsertRows();
     return false;
 }
 

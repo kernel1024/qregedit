@@ -30,10 +30,12 @@ public:
 public Q_SLOTS:
     void searchText(const QModelIndex& idx, const QString& text);
     void continueSearch();
+    void destroyFinder();
 
 Q_SIGNALS:
-    void keyFound(struct hive *hdesc, struct nk_key *key, const QString &value);
+    void keyFound(quintptr hdesc, quintptr key, const QString &value);
     void searchFinished();
+    void requestToDestroy();
 
     void showProgressDialog();
     void hideProgressDialog();

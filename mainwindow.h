@@ -5,6 +5,7 @@
 #include <QTreeView>
 #include <QCloseEvent>
 #include <QSortFilterProxyModel>
+#include <QPointer>
 #include "registrymodel.h"
 #include "sammodel.h"
 #include "progressdialog.h"
@@ -27,13 +28,13 @@ public:
 private:
     Ui::MainWindow *ui;
 
-    // TODO: manage these pointers
-    CRegistryModel *treeModel;
-    CValuesModel *valuesModel;
-    CSAMGroupsModel *groupsModel;
-    CSAMUsersModel *usersModel;
-    QSortFilterProxyModel *valuesSortModel;
-    CProgressDialog *searchProgressDialog;
+    QPointer<CRegistryModel> treeModel;
+    QPointer<CValuesModel> valuesModel;
+    QPointer<CSAMGroupsModel> groupsModel;
+    QPointer<CSAMUsersModel> usersModel;
+    QPointer<QSortFilterProxyModel> valuesSortModel;
+    QPointer<CProgressDialog> searchProgressDialog;
+
     void treeCtxMenuPrivate(const QPoint& pos, bool fromValuesTable);
 
 protected:

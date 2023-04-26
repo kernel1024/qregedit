@@ -19,7 +19,7 @@ public:
     explicit CSAMGroupsModel(QObject *parent = nullptr);
     ~CSAMGroupsModel() override;
 
-    void keyChanged(const QModelIndex& key, QTreeView *view);
+    void keyChanged(const QModelIndex& key);
 
 protected:
     QModelIndex index(int row, int column, const QModelIndex &parent) const override;
@@ -28,6 +28,9 @@ protected:
     int columnCount(const QModelIndex &parent) const override;
     QVariant data(const QModelIndex &index, int role) const override;
     Qt::ItemFlags flags(const QModelIndex &index) const override;
+
+Q_SIGNALS:
+    void valuesReloaded();
 };
 
 class CSAMUsersModel : public QAbstractTableModel
@@ -43,7 +46,7 @@ public:
     explicit CSAMUsersModel(QObject *parent = nullptr);
     ~CSAMUsersModel() override;
 
-    void keyChanged(const QModelIndex& key, QTableView *view);
+    void keyChanged(const QModelIndex& key);
     int getUserRID(const QModelIndex& index) const;
     int getHiveIdx() const { return hive_num; }
 
@@ -53,6 +56,9 @@ protected:
     QVariant data(const QModelIndex &index, int role) const override;
     Qt::ItemFlags flags(const QModelIndex &index) const override;
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
+
+Q_SIGNALS:
+    void valuesReloaded();
 };
 
 #endif // CSAMGROUPSMODEL_H

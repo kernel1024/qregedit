@@ -7,7 +7,8 @@
 
 CValueEditor::CValueEditor(QWidget *parent, int createType, const QModelIndex& idx) :
     QDialog(parent),
-    ui(new Ui::CValueEditor)
+    ui(new Ui::CValueEditor),
+    hexEditor(new QHexEdit(this))
 {
     ui->setupUi(this);
 
@@ -19,7 +20,6 @@ CValueEditor::CValueEditor(QWidget *parent, int createType, const QModelIndex& i
     ui->widgetHex->setParent(nullptr);
     delete ui->widgetHex;
 
-    hexEditor = new QHexEdit(this);
     hexEditor->setObjectName(QString("hexEditor"));
     ui->page_hex->layout()->addWidget(hexEditor);
     hexEditor->setOverwriteMode(false);
@@ -76,7 +76,8 @@ void CValueEditor::saveValue()
         m_value.vString = ui->editMultiString->toPlainText();
         break;
     default:
-        m_value.vOther = hexEditor->data();
+        if (hexEditor)
+            m_value.vOther = hexEditor->data();
         break;
     }
 
@@ -112,7 +113,8 @@ void CValueEditor::prepareWidgets()
         break;
     default:
         ui->stack->setCurrentWidget(ui->page_hex);
-        hexEditor->setData(m_value.vOther);
+        if (hexEditor)
+            hexEditor->setData(m_value.vOther);
         break;
     }
 }

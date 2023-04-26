@@ -3,5 +3,13 @@
         <file alias="bin">data/bin.ico</file>
         <file alias="string">data/string.ico</file>
         <file alias="regedit">data/regedit.ico</file>
+        <file alias="document-import">data/document-import.png</file>
+        <file alias="document-open">data/document-open.png</file>
+        <file alias="edit-find">data/edit-find.png</file>
+        <file alias="folder-locked">data/folder-locked.png</file>
+        <file alias="folder">data/folder.png</file>
+        <file alias="go-next">data/go-next.png</file>
+        <file alias="user-group-properties">data/user-group-properties.png</file>
+        <file alias="user-properties">data/user-properties.png</file>
     </qresource>
 </RCC>

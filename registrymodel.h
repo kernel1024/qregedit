@@ -2,7 +2,7 @@
 #define REGISTRYMODEL_H
 
 #include <QAbstractItemModel>
-#include <QScopedPointer>
+#include <QPointer>
 #include <QTableView>
 #include <QVector>
 #include <QString>
@@ -17,8 +17,11 @@ class CRegistryModel : public QAbstractItemModel
     Q_OBJECT
     Q_DISABLE_COPY(CRegistryModel)
 
+private:
+    QModelIndex getKeyIndex(struct hive *hdesc, struct nk_key *key);
+
 public:
-    QScopedPointer<CFinder> finder;
+    QPointer<CFinder> finder;
 
     explicit CRegistryModel(QObject *parent = nullptr);
     ~CRegistryModel() override;
@@ -35,9 +38,6 @@ public:
 
     bool exportKey(const QModelIndex &idx, const QString& filename);
 
-private:
-    QModelIndex getKeyIndex(struct hive *hdesc, struct nk_key *key);
-
 protected:
     QModelIndex index(int row, int column, const QModelIndex &parent) const override;
     QModelIndex parent(const QModelIndex &child) const override;
@@ -48,9 +48,10 @@ protected:
 
 Q_SIGNALS:
     void keyFound(const QModelIndex &index, const QString &value);
+    void destroyFinder();
 
 private Q_SLOTS:
-    void finderKeyFound(struct hive *hdesc, struct nk_key *key, const QString &value);
+    void finderKeyFound(quintptr hdesc, quintptr key, const QString &value);
 
 };
 
@@ -63,14 +64,16 @@ private:
     int val_count { 0 };
     int key_ofs { -1 };
     int hive_num { -1 };
+    void *key_ptr { nullptr };
     QString m_keyName;
 
 public:
     explicit CValuesModel(QObject *parent = nullptr);
     ~CValuesModel() override;
 
-    void keyChanged(const QModelIndex& key, QTableView *table);
+    void keyChanged(const QModelIndex& key);
     QString getCurrentKeyName() { return m_keyName; }
+    void reloadKey(void *newKey = nullptr);
 
     bool renameValue(const QModelIndex &idx, const QString& name);
     bool deleteValue(const QModelIndex &idx);
@@ -89,6 +92,10 @@ protected:
     QVariant data(const QModelIndex &index, int role) const override;
     Qt::ItemFlags flags(const QModelIndex &index) const override;
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
+
+Q_SIGNALS:
+    void valuesReloaded();
+
 };
 
 #endif // REGISTRYMODEL_H

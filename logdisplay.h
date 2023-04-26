@@ -19,14 +19,13 @@ public:
     ~CLogDisplay() override;
 
 public Q_SLOTS:
-    void updateMessages();
+    void updateMessages(const QString &message);
 
 private:
     Ui::CLogDisplay *ui;
     bool firstShow { true };
     QSyntaxHighlighter *syntax { nullptr };
-
-    QStringList savedMessages;
+    QStringList debugMessages;
 
     void updateText(const QString &text);
 

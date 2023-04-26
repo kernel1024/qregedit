@@ -6,9 +6,7 @@
 #include "settingsdlg.h"
 #include "ui_settingsdlg.h"
 
-CGlobal *cgl = nullptr;
-
-QStringList debugMessages;
+QPointer<CGlobal> cgl;
 
 void stdConsoleOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
@@ -52,17 +50,15 @@ void stdConsoleOutput(QtMsgType type, const QMessageLogContext &context, const Q
 
     if (!lmsg.isEmpty()) {
         QString fmsg = QTime::currentTime().toString("h:mm:ss") + " " + lmsg;
-        debugMessages.append(fmsg);
 
-        while (debugMessages.count() > 5000)
-            debugMessages.removeFirst();
+        if (!cgl.isNull() && !cgl->logWindow.isNull()) {
+            QMetaObject::invokeMethod(cgl->logWindow.data(), [fmsg](){
+                    cgl->logWindow->updateMessages(fmsg);
+                },Qt::QueuedConnection);
+        }
 
         fmsg.append('\n');
-
         fprintf(stderr, "%s", fmsg.toLocal8Bit().constData());
-
-        if (cgl != nullptr && cgl->logWindow != nullptr)
-            QMetaObject::invokeMethod(cgl->logWindow.data(), &CLogDisplay::updateMessages);
     }
 
     loggerMutex.unlock();

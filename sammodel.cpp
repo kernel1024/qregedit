@@ -8,10 +8,8 @@ CSAMGroupsModel::CSAMGroupsModel(QObject *parent)
 
 CSAMGroupsModel::~CSAMGroupsModel() = default;
 
-void CSAMGroupsModel::keyChanged(const QModelIndex &key, QTreeView *view)
+void CSAMGroupsModel::keyChanged(const QModelIndex &key)
 {
-    Q_UNUSED(view)
-
     // Close old key
     if (hive_num >= 0) {
         if (groups_count > 0) {
@@ -48,6 +46,8 @@ void CSAMGroupsModel::keyChanged(const QModelIndex &key, QTreeView *view)
         beginInsertRows(QModelIndex(), 0, groups_count - 1);
         endInsertRows();
     }
+
+    Q_EMIT valuesReloaded();
 }
 
 inline quintptr gid2id(quint16 gid, qint16 member_idx)
@@ -175,9 +175,9 @@ QVariant CSAMGroupsModel::data(const QModelIndex &index, int role) const
             return grps.at(idx).fullname;
     } else if (role == Qt::DecorationRole && idx >= 0) {
         if (mid >= 0)
-            return QIcon::fromTheme(QSL("user-properties")); // TODO: move icon to local resources
+            return QIcon(QSL(":/icons/user-properties"));
 
-        return QIcon::fromTheme(QSL("user-group-properties"));
+        return QIcon(QSL(":/icons/user-group-properties"));
     }
 
     return QVariant();
@@ -198,7 +198,7 @@ CSAMUsersModel::CSAMUsersModel(QObject *parent)
 
 CSAMUsersModel::~CSAMUsersModel() = default;
 
-void CSAMUsersModel::keyChanged(const QModelIndex &key, QTableView *view)
+void CSAMUsersModel::keyChanged(const QModelIndex &key)
 {
     // Close old key
     if (hive_num >= 0) {
@@ -237,8 +237,7 @@ void CSAMUsersModel::keyChanged(const QModelIndex &key, QTableView *view)
         endInsertRows();
     }
 
-    if (view != nullptr)
-        view->resizeColumnsToContents();
+    Q_EMIT valuesReloaded();
 }
 
 int CSAMUsersModel::getUserRID(const QModelIndex &index) const

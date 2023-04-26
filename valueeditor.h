@@ -3,6 +3,7 @@
 
 #include <QDialog>
 #include <QModelIndex>
+#include <QPointer>
 #include "regutils.h"
 #include "qhexedit.h"
 
@@ -29,8 +30,8 @@ public Q_SLOTS:
 
 private:
     Ui::CValueEditor *ui;
+    QPointer<QHexEdit> hexEditor;
     CValue m_value;
-    QHexEdit *hexEditor; // TODO: handle it
     QModelIndex valueIndex;
     bool m_initFailure { true };
     int m_createType { REG_NONE };

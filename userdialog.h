@@ -2,11 +2,13 @@
 #define USERDIALOG_H
 
 #include <QDialog>
-#include "global.h"
+#include <QScopedPointer>
 
 namespace Ui {
 class CUserDialog;
 }
+
+class CUser;
 
 class CUserDialog : public QDialog
 {
@@ -20,7 +22,7 @@ public:
 private:
     Ui::CUserDialog *ui;
     int m_rid { 0 };
-    CUser* m_user { nullptr }; // TODO: manage
+    QScopedPointer<CUser> m_user;
     struct hive* m_hive { nullptr };
 
     void reloadUserInfo();
