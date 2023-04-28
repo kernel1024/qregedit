@@ -2,7 +2,7 @@
     <qresource prefix="/icons">
         <file alias="bin">data/bin.ico</file>
         <file alias="string">data/string.ico</file>
-        <file alias="regedit">data/regedit.ico</file>
+        <file alias="qregedit">data/qregedit.ico</file>
         <file alias="document-import">data/document-import.png</file>
         <file alias="document-open">data/document-open.png</file>
         <file alias="edit-find">data/edit-find.png</file>

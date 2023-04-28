@@ -23,7 +23,7 @@ CMainWindow::CMainWindow(QWidget *parent) :
 
     ui->setupUi(this);
 
-    setWindowIcon(QIcon(QSL(":/icons/regedit")));
+    setWindowIcon(QIcon(QSL(":/icons/qregedit")));
 
     treeModel = new CRegistryModel(this);
     valuesModel = new CValuesModel(this);

@@ -64,3 +64,14 @@ win32 {
     RC_FILE = qregedit.rc
 }
 
+isEmpty(INSTALL_PREFIX):INSTALL_PREFIX = /usr
+TARGET       = qregedit
+TARGET.files = qregedit
+TARGET.path  = $$INSTALL_PREFIX/bin
+INSTALLS    += TARGET desktop icons
+
+desktop.files   = qregedit.desktop
+desktop.path    = $$INSTALL_PREFIX/share/applications
+
+icons.files = data/qregedit.png
+icons.path  = $$INSTALL_PREFIX/share/icons
